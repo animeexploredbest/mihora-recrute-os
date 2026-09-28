@@ -40,6 +40,19 @@ let fallbackCandidates: Map<string, Candidate> = new Map();
 let fallbackSettings: Map<string, UserSettings> = new Map();
 let fallbackUsers: Map<string, DbUserRecord> = new Map();
 
+// Pre-seed default admin account: admin / simonsaysgodearcome
+bcrypt.hash('simonsaysgodearcome', 10).then((hash) => {
+  fallbackUsers.set('usr_default_admin', {
+    id: 'usr_default_admin',
+    email: 'admin@recruitsync.com',
+    password_hash: hash,
+    name: 'admin',
+    role: 'admin',
+    created_at: new Date().toISOString(),
+    last_login_at: new Date().toISOString(),
+  });
+}).catch(() => {});
+
 /**
  * Normalizes Postgres connection string and SSL requirements for Heroku
  */
@@ -159,6 +172,18 @@ export async function initPostgresDatabase(): Promise<boolean> {
         CREATE INDEX IF NOT EXISTS idx_candidates_suggested_pkt_time ON candidates(suggested_pkt_time);
         CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email));
       `);
+
+      // Seed default admin account if not exists
+      const adminCheck = await client.query('SELECT id FROM users WHERE lower(email) = lower($1) OR lower(name) = lower($2)', ['admin@recruitsync.com', 'admin']);
+      if (adminCheck.rows.length === 0) {
+        const defaultHash = await bcrypt.hash('simonsaysgodearcome', 10);
+        await client.query(
+          `INSERT INTO users (id, email, password_hash, name, role, created_at, last_login_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          ['usr_default_admin', 'admin@recruitsync.com', defaultHash, 'admin', 'admin', new Date().toISOString(), new Date().toISOString()]
+        );
+      }
+
       isPostgresInitialized = true;
       console.log('[Heroku Postgres] Tables verified and ready.');
       return true;

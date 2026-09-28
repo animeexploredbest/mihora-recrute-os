@@ -12,7 +12,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import appLogoImg from '../assets/images/app_logo_1789732302179.jpg';
-import { postgresLogin, googleSignIn, AUTHORIZED_GOOGLE_EMAILS } from '../lib/auth';
+import { postgresLogin, googleSignIn, loginDemoAdmin, AUTHORIZED_GOOGLE_EMAILS } from '../lib/auth';
 import { AppUser } from '../types';
 
 interface LoginPageProps {
@@ -138,7 +138,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         {/* Right Side: Sign In Form */}
         <div className="md:w-7/12 p-8 sm:p-10 flex flex-col justify-center bg-slate-900/90 relative">
           <div className="max-w-md mx-auto w-full space-y-6">
-            <div>
+             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-blue-500/10 text-blue-400 border border-blue-500/25 mb-3">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Staff Sign In
@@ -235,7 +235,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <div className="flex-grow border-t border-slate-800" />
               </div>
 
-              {/* Google Sign In Button */}
+               {/* Google Sign In Button */}
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
