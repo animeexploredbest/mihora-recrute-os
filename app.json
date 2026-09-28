@@ -1,0 +1,43 @@
+{
+  "name": "Global Interview Scheduler & ATS",
+  "description": "Enterprise-grade interview scheduling system with worldwide timezone support, dual-clock booking, Heroku Postgres database, and Titan email integration.",
+  "keywords": ["recruitment", "interview-scheduler", "ats", "heroku", "postgres", "react", "typescript"],
+  "repository": "https://github.com/example/scheduler",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "addons": [
+    {
+      "plan": "heroku-postgresql:essential-0",
+      "as": "DATABASE"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "value": "production"
+    },
+    "JWT_SECRET": {
+      "description": "Secret key used to sign and verify JWT authentication tokens for recruiters",
+      "value": "recruitsync_jwt_production_secret_key_2026",
+      "required": true
+    },
+    "GEMINI_API_KEY": {
+      "description": "Google Gemini API key for AI Resume parsing and interview question generation (optional)",
+      "required": false
+    },
+    "TITAN_EMAIL": {
+      "description": "Titan / Custom SMTP Email Address (e.g. hr@yourdomain.com)",
+      "required": false
+    },
+    "TITAN_PASSWORD": {
+      "description": "Titan / Custom SMTP App Password",
+      "required": false
+    },
+    "DATABASE_URL": {
+      "description": "Automatically populated by Heroku Postgres addon",
+      "required": false
+    }
+  }
+}

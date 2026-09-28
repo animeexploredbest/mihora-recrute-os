@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix sylm mihora  Scheduler 789j",
+  "description": "Candidate interview scheduler with automatic timezone conversion and Google Workspace (Calendar, Gmail, Tasks) integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

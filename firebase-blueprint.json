@@ -1,0 +1,290 @@
+{
+  "entities": {
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Recruitment candidate profile and interview scheduling record",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Candidate full name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Candidate email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Candidate phone number"
+        },
+        "location": {
+          "type": "string",
+          "description": "Candidate location"
+        },
+        "position": {
+          "type": "string",
+          "description": "Target job position"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Scheduled", "Rescheduled", "Interviewed", "Selected", "Rejected"],
+          "description": "Pipeline status"
+        },
+        "suggestedPktTime": {
+          "type": "string",
+          "description": "Interview date-time in ISO format"
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "Interview meeting duration in minutes (e.g. 15, 30, 45, 60, 90)"
+        },
+        "originalAvailability": {
+          "type": "string",
+          "description": "Raw candidate availability text"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Interview feedback and notes"
+        },
+        "resumeLink": {
+          "type": "string",
+          "description": "URL to resume"
+        },
+        "country": {
+          "type": "string",
+          "description": "Candidate country name"
+        },
+        "city": {
+          "type": "string",
+          "description": "Candidate city or region"
+        },
+        "linkedinUrl": {
+          "type": "string",
+          "description": "Candidate LinkedIn profile URL"
+        },
+        "githubUrl": {
+          "type": "string",
+          "description": "Candidate GitHub profile URL"
+        },
+        "portfolioUrl": {
+          "type": "string",
+          "description": "Candidate portfolio or personal website URL"
+        },
+        "meetLink": {
+          "type": "string",
+          "description": "Google Meet conference URL"
+        },
+        "calendarEventId": {
+          "type": "string",
+          "description": "Google Calendar event ID"
+        },
+        "calendarEventLink": {
+          "type": "string",
+          "description": "Google Calendar HTML web link"
+        },
+        "scorecard": {
+          "type": "object",
+          "description": "Structured candidate interview scorecard and rating"
+        },
+        "lastReminderSentAt": {
+          "type": "string",
+          "description": "Timestamp ISO string of the last reminder dispatched"
+        },
+        "reminderCount": {
+          "type": "number",
+          "description": "Total reminders sent for this candidate"
+        },
+        "createdByEmail": {
+          "type": "string",
+          "description": "Email address of team member who added the candidate"
+        },
+        "createdByName": {
+          "type": "string",
+          "description": "Display name of team member who added the candidate"
+        },
+        "aiSummary": {
+          "type": "string",
+          "description": "AI extracted profile summary"
+        },
+        "aiSkills": {
+          "type": "string",
+          "description": "AI extracted candidate skills"
+        },
+        "aiRating": {
+          "type": "string",
+          "description": "AI technical rating"
+        },
+        "trackId": {
+          "type": "string",
+          "description": "Allocated interview track or virtual room ID (e.g. track-alpha, track-beta, track-hr)"
+        },
+        "trackName": {
+          "type": "string",
+          "description": "Display name of allocated track (e.g. Track A (Engineering Alpha))"
+        },
+        "interviewerEmails": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of interviewers assigned to this specific session"
+        },
+        "assignedInterviewer": {
+          "type": "string",
+          "description": "Primary interviewer email assigned to candidate"
+        },
+        "scheduledInterviewerId": {
+          "type": "string",
+          "description": "Specific interviewer handling this session"
+        },
+        "isConcurrentSlot": {
+          "type": "boolean",
+          "description": "Flag indicating parallel execution in this slot"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Candidate IANA timezone"
+        },
+        "timezoneLabel": {
+          "type": "string",
+          "description": "Candidate timezone display label"
+        },
+        "hiringRound": {
+          "type": "string",
+          "description": "Current candidate hiring round stage"
+        },
+        "activities": {
+          "type": "array",
+          "description": "Candidate audit trail activities"
+        }
+      },
+      "required": ["userId", "name", "email", "status", "suggestedPktTime"]
+    },
+    "InterviewScorecard": {
+      "title": "InterviewScorecard",
+      "description": "Evaluation scorecard for structured candidate interviews",
+      "type": "object",
+      "properties": {
+        "technicalRating": {
+          "type": "number",
+          "description": "Technical competence rating from 1 to 5"
+        },
+        "communicationRating": {
+          "type": "number",
+          "description": "Communication rating from 1 to 5"
+        },
+        "problemSolvingRating": {
+          "type": "number",
+          "description": "Problem solving rating from 1 to 5"
+        },
+        "overallRating": {
+          "type": "number",
+          "description": "Calculated overall rating from 1 to 5"
+        },
+        "recommendation": {
+          "type": "string",
+          "enum": ["Strong Hire", "Hire", "On Hold", "Reject"],
+          "description": "Hiring decision recommendation"
+        },
+        "interviewerNotes": {
+          "type": "string",
+          "description": "Evaluation notes from the interviewer"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "description": "Timestamp ISO string of evaluation"
+        },
+        "evaluatedBy": {
+          "type": "string",
+          "description": "Email or display name of the evaluator"
+        }
+      },
+      "required": ["overallRating", "recommendation"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences and email invitation templates",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "emailTemplate": {
+          "type": "string",
+          "description": "Custom email invitation template"
+        },
+        "defaultDurationMinutes": {
+          "type": "number",
+          "description": "Default interview duration in minutes (e.g. 15, 30, 45, 60, 90)"
+        },
+        "interviewerEmails": {
+          "type": "string",
+          "description": "Comma separated default interviewer emails for Calendar and CC"
+        },
+        "maxConcurrentSlots": {
+          "type": "number",
+          "description": "Maximum parallel interviews allowed per slot (default: 4)"
+        }
+      },
+      "required": ["userId", "emailTemplate"]
+    },
+    "UserPresence": {
+      "title": "UserPresence",
+      "description": "Real-time active presence of logged in team members and recruiters",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the recruiter"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of recruiter"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of recruiter"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Avatar photo URL"
+        },
+        "lastActiveAt": {
+          "type": "string",
+          "description": "ISO timestamp of last activity heartbeat"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["online", "idle", "offline"],
+          "description": "Current presence state"
+        },
+        "currentView": {
+          "type": "string",
+          "description": "Current active dashboard section"
+        },
+        "activeCandidateName": {
+          "type": "string",
+          "description": "Name of candidate currently being reviewed or scheduled"
+        }
+      },
+      "required": ["userId", "email", "lastActiveAt", "status"]
+    }
+  },
+  "firestore": {
+    "/presence/{userId}": {
+      "schema": "UserPresence",
+      "description": "Real-time live presence tracking document for logged-in recruiters"
+    },
+    "/candidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "Shared recruitment candidate pipeline accessible to authenticated team members"
+    },
+    "/userSettings/{userId}": {
+      "schema": "UserSettings",
+      "description": "Settings document keyed by the recruiter user ID"
+    }
+  }
+}

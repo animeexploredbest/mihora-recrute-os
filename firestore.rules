@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if user is authenticated and not on the email blacklist
+    function isAllowedUser() {
+      return isSignedIn() && request.auth.token.get('email', '') != 'zainabfatima25.g@gmail.com';
+    }
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health / connection test document
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Recruiter User Settings (keyed by recruiter user ID)
+    match /userSettings/{userId} {
+      allow read, write: if isAllowedUser() && request.auth.uid == userId;
+    }
+
+    // Shared Staff Members & Interviewers Panel
+    match /staffMembers/{staffId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    // Live Team Presence (accessible to all authenticated, non-blocked team members)
+    match /presence/{userId} {
+      allow read: if isAllowedUser();
+      allow write: if isAllowedUser() && request.auth.uid == userId;
+    }
+
+    // Shared Candidates Pipeline (accessible to all authenticated, non-blocked team members)
+    match /candidates/{candidateId} {
+      allow read: if isAllowedUser();
+      allow create, update: if isAllowedUser() &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 200;
+      allow delete: if isAllowedUser();
+    }
+  }
+}
+
