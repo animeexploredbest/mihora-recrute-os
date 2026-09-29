@@ -262,6 +262,7 @@ async function startServer() {
         'omema19022026@gmail.com',
         'm.mattiulhasnain@gmail.com',
         'mihora.tech@gmail.com',
+        'animeexploredbest@gmail.com',
       ];
       const isAdmin = AUTHORIZED_ADMINS.includes(cleanEmail);
       const userRole = isAdmin ? 'admin' : (req.body.role || 'lead_recruiter');
@@ -395,7 +396,7 @@ async function startServer() {
         },
       });
 
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+      const modelsToTry = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
       let lastErr: any = null;
 
       for (const model of modelsToTry) {
@@ -410,14 +411,9 @@ async function startServer() {
           }
         } catch (err: any) {
           lastErr = err;
-          const isHighDemand =
-            err?.message?.includes('503') ||
-            err?.message?.includes('high demand') ||
-            err?.status === 'UNAVAILABLE';
           console.warn(`[Gemini Model ${model}]:`, err?.message || err);
-          if (isHighDemand) {
-            continue;
-          }
+          // Seamlessly proceed to next fallback model on any error (quota, 429, 503, etc.)
+          continue;
         }
       }
       throw lastErr || new Error('Gemini API call failed across available models.');
@@ -528,7 +524,7 @@ ${text ? `\nContent:\n${text}` : ''}
           ]
         : promptText;
 
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+      const modelsToTry = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
       let rawText = '';
       for (const model of modelsToTry) {
         try {
@@ -599,7 +595,7 @@ Return ONLY a valid JSON Array of Strings, where each string is a single questio
 ["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
 `;
 
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+      const modelsToTry = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
       let questions: string[] = [];
 
       for (const model of modelsToTry) {

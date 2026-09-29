@@ -35,21 +35,19 @@ export interface ParseResult {
 /**
  * Normalizes email address
  */
-function cleanEmail(email: string, fallbackName: string): string {
+function cleanEmail(email: string, _fallbackName?: string): string {
   const clean = email.trim().toLowerCase();
   if (clean && clean.includes('@') && clean.includes('.')) {
     return clean;
   }
-  const slug = fallbackName.toLowerCase().replace(/[^a-z0-9]/g, '.');
-  return `${slug || 'candidate'}@placeholder.recruitsync.local`;
+  return '';
 }
 
 /**
  * Normalizes phone numbers
  */
 function cleanPhone(phone: string): string {
-  const p = phone.trim();
-  return p || '+92 300 0000000';
+  return phone.trim();
 }
 
 /**
@@ -124,9 +122,9 @@ export function parseMarkdownTable(rawText: string): ParsedCandidateItem[] {
     const githubUrl = colIndex.github !== -1 ? cells[colIndex.github] : undefined;
     const assignedInterviewer = colIndex.interviewer !== -1 && cells[colIndex.interviewer] ? cells[colIndex.interviewer].trim() : undefined;
 
-    const resolvedCity = city || (locRaw ? locRaw.split(',')[0].trim() : 'Karachi');
-    const resolvedCountry = country || (locRaw && locRaw.includes(',') ? locRaw.split(',').pop()?.trim() : 'Pakistan');
-    const location = locRaw || `${resolvedCity}, ${resolvedCountry}`;
+    const resolvedCity = city || (locRaw ? locRaw.split(',')[0].trim() : '');
+    const resolvedCountry = country || (locRaw && locRaw.includes(',') ? locRaw.split(',').pop()?.trim() : '');
+    const location = locRaw || (resolvedCity && resolvedCountry ? `${resolvedCity}, ${resolvedCountry}` : resolvedCity || resolvedCountry || '');
 
     const tempCandidate = {
       timezone: tzRaw,
@@ -148,7 +146,7 @@ export function parseMarkdownTable(rawText: string): ParsedCandidateItem[] {
       position: position || 'Software Engineer',
       originalAvailability: availability,
       notes,
-      resumeLink: 'https://drive.google.com/recruitsync/resumes',
+      resumeLink: '',
       linkedinUrl: linkedinUrl?.startsWith('http') ? linkedinUrl : undefined,
       githubUrl: githubUrl?.startsWith('http') ? githubUrl : undefined,
       assignedInterviewer: assignedInterviewer && assignedInterviewer.includes('@') ? assignedInterviewer : undefined,
@@ -181,9 +179,9 @@ export function parseJsonPayload(rawText: string): ParsedCandidateItem[] {
 
     return parsed.map((item: any, idx: number) => {
       const name = item.name || item.fullName || `Candidate ${idx + 1}`;
-      const resolvedCity = item.city || (item.location ? item.location.split(',')[0]?.trim() : 'Karachi');
-      const resolvedCountry = item.country || (item.location && item.location.includes(',') ? item.location.split(',').pop()?.trim() : 'Pakistan');
-      const location = item.location || `${resolvedCity}, ${resolvedCountry}`;
+      const resolvedCity = item.city || (item.location ? item.location.split(',')[0]?.trim() : '');
+      const resolvedCountry = item.country || (item.location && item.location.includes(',') ? item.location.split(',').pop()?.trim() : '');
+      const location = item.location || (resolvedCity && resolvedCountry ? `${resolvedCity}, ${resolvedCountry}` : resolvedCity || resolvedCountry || '');
 
       const tempCand = {
         timezone: item.timezone || item.tz,
@@ -205,7 +203,7 @@ export function parseJsonPayload(rawText: string): ParsedCandidateItem[] {
         position: item.position || item.role || item.title || 'Software Engineer',
         originalAvailability: item.originalAvailability || item.availability || 'Weekdays standard',
         notes: item.notes || item.summary || item.skills || 'Imported via AI JSON payload.',
-        resumeLink: item.resumeLink || 'https://drive.google.com/recruitsync/resumes',
+        resumeLink: item.resumeLink || '',
         linkedinUrl: item.linkedinUrl || item.linkedin,
         githubUrl: item.githubUrl || item.github,
         portfolioUrl: item.portfolioUrl || item.portfolio,
@@ -247,9 +245,9 @@ export function parseKeyValueBlocks(rawText: string): ParsedCandidateItem[] {
 
     const email = data.email || data['e-mail'] || '';
     const phone = data.phone || data['mobile'] || data['contact'] || '';
-    const city = data.city || 'Karachi';
-    const country = data.country || 'Pakistan';
-    const location = data.location || `${city}, ${country}`;
+    const city = data.city || '';
+    const country = data.country || '';
+    const location = data.location || (city && country ? `${city}, ${country}` : city || country || '');
     const tz = data.timezone || data.tz;
     const position = data.position || data.role || data.title || 'Software Engineer';
     const availability = data.availability || data['original availability'] || 'Flexible';
@@ -271,7 +269,7 @@ export function parseKeyValueBlocks(rawText: string): ParsedCandidateItem[] {
       position,
       originalAvailability: availability,
       notes,
-      resumeLink: 'https://drive.google.com/recruitsync/resumes',
+      resumeLink: '',
       linkedinUrl: data.linkedin,
       githubUrl: data.github,
       assignedInterviewer: assignedInterviewer && assignedInterviewer.includes('@') ? assignedInterviewer.trim() : undefined,

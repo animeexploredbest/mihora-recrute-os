@@ -9,6 +9,7 @@ export const AUTHORIZED_GOOGLE_EMAILS = [
   'omema19022026@gmail.com',
   'm.mattiulhasnain@gmail.com',
   'mihora.tech@gmail.com',
+  'animeexploredbest@gmail.com',
 ];
 
 export const isAuthorizedGoogleEmail = (email?: string | null): boolean => {

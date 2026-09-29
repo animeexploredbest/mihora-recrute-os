@@ -16,7 +16,7 @@ export const DEFAULT_MASTER_AI_PROMPT = `You are an expert Recruitment Operation
 1. Extract ALL real candidates found in the input. Do not invent, hallucinate, or fabricate dummy records.
 2. For each candidate, determine:
    - Full Name
-   - Email (must be valid format; if missing, format as firstName.lastName@placeholder.recruitsync.local)
+   - Email (must be valid format; if missing, leave empty "")
    - Phone Number (include country code e.g. +92, +1, +44, +971 if identifiable)
    - Location (City, Country)
    - Standard IANA Timezone (e.g. America/New_York, Europe/London, Asia/Dubai, Asia/Karachi, Asia/Kolkata)

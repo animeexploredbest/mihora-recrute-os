@@ -92,9 +92,7 @@ export const BulkStudentInviteModal: React.FC<BulkStudentInviteModalProps> = ({
   );
 
   // Raw bulk input for student emails
-  const [rawEmailsInput, setRawEmailsInput] = useState(
-    'ahmed.khan@gmail.com, zainab.student@gmail.com, hamza.dev@gmail.com, bilal.cs@gmail.com, sara.tech@gmail.com'
-  );
+  const [rawEmailsInput, setRawEmailsInput] = useState('');
 
   // Agenda points
   const [agendaList, setAgendaList] = useState<string[]>([
@@ -333,7 +331,9 @@ export const BulkStudentInviteModal: React.FC<BulkStudentInviteModalProps> = ({
     setSelectedTheme(preset.theme || 'sapphire');
     setSessionDescription(preset.description);
     setAgendaList(preset.agenda);
-    setRawEmailsInput(preset.emails.join(', '));
+    if (preset.emails && preset.emails.length > 0) {
+      setRawEmailsInput(preset.emails.join(', '));
+    }
   };
 
   // Copy HTML

@@ -77,11 +77,11 @@ function parseClientSideCsv(csvText: string): any[] | null {
 
     const email = emailIdx !== -1 ? row[emailIdx] : '';
     const position = posIdx !== -1 ? row[posIdx] : 'Software Engineer';
-    const country = countryIdx !== -1 && row[countryIdx] ? row[countryIdx] : 'Pakistan';
+    const country = countryIdx !== -1 && row[countryIdx] ? row[countryIdx] : '';
     const city = cityIdx !== -1 ? row[cityIdx] : '';
     const rawTz = tzIdx !== -1 ? row[tzIdx] : '';
     const tzInfo = resolveCandidateTimezone({ timezone: rawTz, country, location: city });
-    const phone = phoneIdx !== -1 ? row[phoneIdx] : 'N/A';
+    const phone = phoneIdx !== -1 ? row[phoneIdx] : '';
     const rawTime = timeIdx !== -1 ? row[timeIdx] : '';
     const notes = notesIdx !== -1 ? row[notesIdx] : '';
 
@@ -89,8 +89,7 @@ function parseClientSideCsv(csvText: string): any[] | null {
     if (rawTime && !isNaN(Date.parse(rawTime))) {
       suggestedPktTime = new Date(rawTime).toISOString();
     } else {
-      // Stagger default times by days/hours
-      suggestedPktTime = new Date(Date.now() + (i * 7200000 + 86400000)).toISOString();
+      suggestedPktTime = '';
     }
 
     parsedCandidates.push({
@@ -102,9 +101,9 @@ function parseClientSideCsv(csvText: string): any[] | null {
       timezone: tzInfo.tz,
       timezoneLabel: tzInfo.label,
       phone,
-      originalAvailability: rawTime || 'Custom',
+      originalAvailability: rawTime || '',
       suggestedPktTime,
-      summary: notes || `Imported via CSV record #${i}`,
+      summary: notes || '',
       skills: 'Technical Skills',
       rating: '8/10',
     });
@@ -124,29 +123,19 @@ export function BulkAddModal({ onClose, onSaveBulk }: BulkAddModalProps) {
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const sampleCsvData =
-    'Name,Email,Position,Country,City,Timezone,Phone,SuggestedPktTime,Notes\n' +
-    'Ali Khan,ali.khan@example.com,Senior Full Stack Engineer,Pakistan,Lahore,Asia/Karachi,+92 300 1234567,2026-09-22T15:00:00.000Z,Strong React & Node experience\n' +
-    'Sarah Jenkins,sarah.j@example.com,Product Designer,United States,San Francisco,America/Los_Angeles,+1 415 555 2671,2026-09-23T18:00:00.000Z,Portfolio reviewed & approved\n' +
-    'Tariq Mahmood,tariq.m@example.com,DevOps Lead,United Arab Emirates,Dubai,Asia/Dubai,+971 50 123 4567,2026-09-24T14:00:00.000Z,AWS certified architect';
+  const csvTemplateData =
+    'Name,Email,Position,Country,City,Timezone,Phone,SuggestedPktTime,Notes\n';
 
   const handleDownloadSampleCsv = () => {
-    const blob = new Blob([sampleCsvData], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvTemplateData], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'recruitsync_candidates_sample.csv');
+    link.setAttribute('download', 'recruitsync_candidates_template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const handleLoadSample = () => {
-    setBulkText(sampleCsvData);
-    setUploadedFileName('sample_candidates.csv');
-    setError(null);
-    setInfoMessage('Loaded 3 sample candidate records. Click "Extract Candidates" to process!');
   };
 
   const handleAnalyzeText = async (textToAnalyze: string) => {
@@ -345,22 +334,12 @@ export function BulkAddModal({ onClose, onSaveBulk }: BulkAddModalProps) {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  id="btn-load-sample-csv"
-                  onClick={handleLoadSample}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                  title="Populate input with 3 ready-to-test candidate rows"
-                >
-                  <Play className="w-3 h-3 fill-white" />
-                  <span>Load Sample</span>
-                </button>
-                <button
-                  type="button"
                   id="btn-download-sample-csv"
                   onClick={handleDownloadSampleCsv}
-                  className="px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 rounded-lg font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 rounded-lg font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer text-xs"
                 >
                   <Download className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Sample CSV</span>
+                  <span>Download Template</span>
                 </button>
               </div>
             </div>

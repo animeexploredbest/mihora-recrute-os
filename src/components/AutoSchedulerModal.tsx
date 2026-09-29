@@ -174,12 +174,10 @@ export const AutoSchedulerModal: React.FC<AutoSchedulerModalProps> = ({
       (c) => !targetCandidates.some((tc) => tc.id === c.id)
     );
 
-    setTimeout(() => {
-      const result = runAutoScheduler(targetCandidates, otherCandidates, config);
-      setSimResult(result);
-      setIsSimulating(false);
-      setStep('preview');
-    }, 250);
+    const result = runAutoScheduler(targetCandidates, otherCandidates, config);
+    setSimResult(result);
+    setIsSimulating(false);
+    setStep('preview');
   };
 
   // Execute batch commit

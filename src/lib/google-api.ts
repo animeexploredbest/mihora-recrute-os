@@ -171,20 +171,19 @@ export const scheduleInterview = async (
     }
   }
 
-  // Extract Meet link from Google Calendar or generate dedicated Meet room
-  const randomRoomCode = `${Math.random().toString(36).substring(2, 5)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 5)}`;
+  // Extract real Meet link from Google Calendar event if generated
   let meetLink =
     eventData?.hangoutLink ||
     eventData?.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri ||
-    `https://meet.google.com/${randomRoomCode}`;
+    '';
 
   const startIsoClean = startTime.toISOString().replace(/-|:|\.\d\d\d/g, '');
   const endIsoClean = endTime.toISOString().replace(/-|:|\.\d\d\d/g, '');
   const fallbackCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
     `${summaryPrefix}: ${candidateName} - ${role}${trackSuffix}`
   )}&dates=${startIsoClean}/${endIsoClean}&details=${encodeURIComponent(
-    `Technical Interview for ${role} with ${candidateName}.\nMeet Link: ${meetLink}\nTrack: ${trackName || 'General Track'}\nInterviewers: ${ccString}`
-  )}&location=${encodeURIComponent(meetLink)}`;
+    `Technical Interview for ${role} with ${candidateName}.${meetLink ? `\nMeet Link: ${meetLink}` : ''}\nTrack: ${trackName || 'General Track'}\nInterviewers: ${ccString}`
+  )}${meetLink ? `&location=${encodeURIComponent(meetLink)}` : ''}`;
 
   const calendarEventLink = eventData?.htmlLink || fallbackCalendarLink;
   const calendarEventId = eventData?.id || existingCalendarEventId || '';

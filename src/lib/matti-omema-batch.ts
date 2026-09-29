@@ -181,20 +181,18 @@ export async function createRealCalendarEventWithMeet(
     }
   }
 
-  // Fallback: If no accessToken or API returned an error, generate standard Google Meet pattern room
-  // (3-4-3 chars) and direct Google Calendar creation link template
+  // If no accessToken or API returned an error, provide the direct Google Calendar creation link template
+  // without fabricating fake Google Meet links
   const startIsoClean = startTime.toISOString().replace(/-|:|\.\d\d\d/g, '');
   const endIsoClean = endTime.toISOString().replace(/-|:|\.\d\d\d/g, '');
-  const roomCode = `${Math.random().toString(36).substring(2, 5)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 5)}`;
-  const meetLink = `https://meet.google.com/${roomCode}`;
   const calendarEventLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
     `Technical Interview: ${candidate.name} - ${candidate.role} [${trackName}]`
   )}&dates=${startIsoClean}/${endIsoClean}&details=${encodeURIComponent(
-    `Official Technical Interview for ${candidate.role} with ${candidate.name}.\nDate & Time (PKT): ${formatPktDateTime(suggestedPktTime)}\nMeeting Link: ${meetLink}\nInterviewer: ${interviewerEmail}`
-  )}&location=${encodeURIComponent(meetLink)}&add=${encodeURIComponent(`${candidate.email},${interviewerEmail}`)}`;
+    `Official Technical Interview for ${candidate.role} with ${candidate.name}.\nDate & Time (PKT): ${formatPktDateTime(suggestedPktTime)}\nInterviewer: ${interviewerEmail}`
+  )}&add=${encodeURIComponent(`${candidate.email},${interviewerEmail}`)}`;
 
   return {
-    meetLink,
+    meetLink: '',
     calendarEventLink,
     createdOnGoogleCalendar: false,
   };

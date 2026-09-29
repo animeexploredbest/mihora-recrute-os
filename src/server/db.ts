@@ -143,10 +143,24 @@ export async function initPostgresDatabase(): Promise<boolean> {
           created_by_email TEXT,
           created_by_name TEXT,
           user_id TEXT,
+          track_id TEXT,
+          track_name TEXT,
+          interviewer_emails JSONB,
+          assigned_interviewer TEXT,
+          scheduled_interviewer_id TEXT,
+          is_concurrent_slot BOOLEAN DEFAULT FALSE,
           extra_data JSONB,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
+
+        -- Safe column migrations for existing instances
+        ALTER TABLE candidates ADD COLUMN IF NOT EXISTS track_id TEXT;
+        ALTER TABLE candidates ADD COLUMN IF NOT EXISTS track_name TEXT;
+        ALTER TABLE candidates ADD COLUMN IF NOT EXISTS interviewer_emails JSONB;
+        ALTER TABLE candidates ADD COLUMN IF NOT EXISTS assigned_interviewer TEXT;
+        ALTER TABLE candidates ADD COLUMN IF NOT EXISTS scheduled_interviewer_id TEXT;
+        ALTER TABLE candidates ADD COLUMN IF NOT EXISTS is_concurrent_slot BOOLEAN DEFAULT FALSE;
 
         CREATE TABLE IF NOT EXISTS user_settings (
           user_id VARCHAR(128) PRIMARY KEY,
@@ -237,6 +251,16 @@ function rowToCandidate(r: any): Candidate {
     createdByEmail: r.created_by_email || undefined,
     createdByName: r.created_by_name || undefined,
     userId: r.user_id || undefined,
+    trackId: r.track_id || r.extra_data?.trackId || undefined,
+    trackName: r.track_name || r.extra_data?.trackName || undefined,
+    interviewerEmails: Array.isArray(r.interviewer_emails)
+      ? r.interviewer_emails
+      : typeof r.interviewer_emails === 'string'
+      ? (() => { try { return JSON.parse(r.interviewer_emails); } catch { return []; } })()
+      : r.extra_data?.interviewerEmails || undefined,
+    assignedInterviewer: r.assigned_interviewer || r.extra_data?.assignedInterviewer || undefined,
+    scheduledInterviewerId: r.scheduled_interviewer_id || r.extra_data?.scheduledInterviewerId || undefined,
+    isConcurrentSlot: r.is_concurrent_slot !== undefined ? Boolean(r.is_concurrent_slot) : r.extra_data?.isConcurrentSlot,
     ...(r.extra_data || {}),
   };
 }
@@ -309,6 +333,7 @@ export async function createDbCandidate(candidate: Candidate): Promise<Candidate
           portfolio_url, ai_summary, ai_skills, ai_rating, scorecard, activities,
           ai_questions, calendar_event_id, calendar_event_link, last_whatsapp_sent_at,
           last_reminder_sent_at, reminder_count, created_by_email, created_by_name, user_id,
+          track_id, track_name, interviewer_emails, assigned_interviewer, scheduled_interviewer_id, is_concurrent_slot,
           updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9,
@@ -317,6 +342,7 @@ export async function createDbCandidate(candidate: Candidate): Promise<Candidate
           $21, $22, $23, $24, $25, $26,
           $27, $28, $29, $30,
           $31, $32, $33, $34, $35,
+          $36, $37, $38, $39, $40, $41,
           NOW()
         )`,
         [
@@ -355,6 +381,12 @@ export async function createDbCandidate(candidate: Candidate): Promise<Candidate
           savedCandidate.createdByEmail || null,
           savedCandidate.createdByName || null,
           savedCandidate.userId || null,
+          savedCandidate.trackId || null,
+          savedCandidate.trackName || null,
+          savedCandidate.interviewerEmails ? JSON.stringify(savedCandidate.interviewerEmails) : null,
+          savedCandidate.assignedInterviewer || null,
+          savedCandidate.scheduledInterviewerId || null,
+          savedCandidate.isConcurrentSlot || false,
         ]
       );
       return savedCandidate;
@@ -391,7 +423,9 @@ export async function updateDbCandidate(id: string, updates: Partial<Candidate>)
           portfolio_url = $21, ai_summary = $22, ai_skills = $23, ai_rating = $24,
           scorecard = $25, activities = $26, ai_questions = $27, calendar_event_id = $28,
           calendar_event_link = $29, last_whatsapp_sent_at = $30, last_reminder_sent_at = $31,
-          reminder_count = $32, updated_at = NOW()
+          reminder_count = $32, track_id = $33, track_name = $34, interviewer_emails = $35,
+          assigned_interviewer = $36, scheduled_interviewer_id = $37, is_concurrent_slot = $38,
+          updated_at = NOW()
         WHERE id = $1`,
         [
           id,
@@ -426,6 +460,12 @@ export async function updateDbCandidate(id: string, updates: Partial<Candidate>)
           merged.lastWhatsAppSentAt || null,
           merged.lastReminderSentAt || null,
           merged.reminderCount || 0,
+          merged.trackId || null,
+          merged.trackName || null,
+          merged.interviewerEmails ? JSON.stringify(merged.interviewerEmails) : null,
+          merged.assignedInterviewer || null,
+          merged.scheduledInterviewerId || null,
+          merged.isConcurrentSlot || false,
         ]
       );
       return merged;
@@ -549,7 +589,7 @@ export async function getDbStatus(): Promise<DbStatusInfo> {
   const p = getPostgresPool();
   const rawUrl = (process.env.DATABASE_URL || '').trim();
 
-  if (p) {
+  if (p && isPostgresInitialized) {
     try {
       const client = await p.connect();
       try {

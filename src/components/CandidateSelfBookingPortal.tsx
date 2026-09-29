@@ -27,10 +27,12 @@ import { formatInTimezone, resolveCandidateTimezone } from '../lib/timezone-util
 
 interface CandidateSelfBookingPortalProps {
   candidate: Candidate;
-  allCandidates: Candidate[];
+  allCandidates?: Candidate[];
   isStandalone?: boolean;
+  isOpen?: boolean;
   onClose?: () => void;
   onBookingConfirmed?: (updatedCandidate: Candidate) => void;
+  onConfirmBooking?: (candidateId: string, slotIso: string, notes?: string) => Promise<void>;
 }
 
 const COMMON_TIMEZONES = [
@@ -49,12 +51,16 @@ const COMMON_TIMEZONES = [
 
 export const CandidateSelfBookingPortal: React.FC<CandidateSelfBookingPortalProps> = ({
   candidate,
-  allCandidates,
+  allCandidates = [],
   isStandalone = false,
+  isOpen = true,
   onClose,
   onBookingConfirmed,
+  onConfirmBooking,
 }) => {
   const { colors } = useTheme();
+
+  if (isOpen === false) return null;
 
   // Detect candidate or browser local timezone
   const defaultTz = useMemo(() => {
@@ -204,6 +210,9 @@ export const CandidateSelfBookingPortal: React.FC<CandidateSelfBookingPortalProp
       );
 
       setConfirmed(true);
+      if (onConfirmBooking) {
+        await onConfirmBooking(candidate.id, selectedSlotIso, candidateNotes);
+      }
       if (onBookingConfirmed) {
         onBookingConfirmed({ ...candidate, ...updatedPayload });
       }

@@ -337,41 +337,6 @@ export const AiBulkIntakeModal: React.FC<AiBulkIntakeModalProps> = ({
     }
   };
 
-  const SAMPLE_DEVELOPERS = `1. Hamza Tariq
-Role: Senior Full Stack Developer (React & Node.js)
-Email: hamza.tariq@gmail.com
-Phone: +92 301 4455667
-Location: Lahore, Pakistan
-Availability: Available weekdays after 3:00 PM PKT
-
-2. Sara Jenkins
-Role: Cloud Solutions Architect (AWS / Kubernetes)
-Email: s.jenkins.cloud@gmail.com
-Phone: +1 415-890-1234
-Location: San Francisco, United States
-Availability: Flexible between 9:00 AM - 1:00 PM PST
-
-3. Bilal Ahmed
-Role: Senior Python & Django Engineer
-Email: bilal.ahmed.eng@gmail.com
-Phone: +92 333 5556677
-Location: Karachi, Pakistan
-Availability: Available tomorrow 11:00 AM PKT`;
-
-  const SAMPLE_WHATSAPP = `[10:15 AM] Applicant 1: Ayesha Malik
-Role: Frontend Engineer (Next.js, Tailwind)
-Email: ayesha.malik@outlook.com, Cell: +92 321 9876543, Islamabad
-Free slots: Thursday 2:00 PM PKT or Friday 4:00 PM PKT
-
-[10:42 AM] Applicant 2: Tariq Mehmood
-Senior DevOps & Infrastructure Engineer
-tariq.k8s@gmail.com | +92 300 1122334 | Rawalpindi
-Available all afternoons PKT`;
-
-  const SAMPLE_TABLE = `| Name | Email | Phone | City | Country | Timezone | Position | Original Availability |
-| Alice Khan | alice@example.com | +92 300 1234567 | Karachi | Pakistan | Asia/Karachi | Senior React Dev | Tomorrow 3pm PKT |
-| Bob Smith | bob@example.com | +1 555-0199 | New York | United States | America/New_York | Cloud Architect | Weekdays 2pm EST |`;
-
   const processAiExtractedData = (data: any[]) => {
     if (!Array.isArray(data) || data.length === 0) {
       setAiExtractionError('No candidates could be recognized from the text.');
@@ -384,15 +349,13 @@ Available all afternoons PKT`;
 
     const items: ParsedCandidateItem[] = data.map((item: any, idx: number) => {
       const name = (item.name || `Candidate ${idx + 1}`).trim();
-      const email =
-        (item.email || '').trim().toLowerCase() ||
-        `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@candidate.recruitsync.local`;
-      const phone = (item.phone || '').trim() || '+92 300 0000000';
-      const city = item.city || 'Karachi';
-      const country = item.country || 'Pakistan';
-      const location = item.location || (item.city ? `${item.city}, ${country}` : country);
+      const email = (item.email || '').trim().toLowerCase();
+      const phone = (item.phone || '').trim();
+      const city = item.city || '';
+      const country = item.country || '';
+      const location = item.location || (city && country ? `${city}, ${country}` : city || country || '');
       const tzInfo = resolveCandidateTimezone({ timezone: item.timezone, country, location });
-      const isDup = existingEmailSet.has(email);
+      const isDup = Boolean(email && existingEmailSet.has(email));
 
       return {
         id: `cand_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
@@ -405,11 +368,11 @@ Available all afternoons PKT`;
         timezone: tzInfo.tz,
         timezoneLabel: tzInfo.label,
         position: item.position || 'Software Engineer',
-        originalAvailability: item.originalAvailability || item.availability || 'Standard business hours',
+        originalAvailability: item.originalAvailability || item.availability || '',
         notes: item.summary
           ? `${item.summary}${item.skills ? ` • Skills: ${item.skills}` : ''}`
           : item.skills || 'Extracted via Gemini AI',
-        resumeLink: item.resumeLink || 'https://drive.google.com/recruitsync/resumes',
+        resumeLink: item.resumeLink || '',
         linkedinUrl: item.linkedinUrl,
         githubUrl: item.githubUrl,
         portfolioUrl: item.portfolioUrl,
@@ -576,12 +539,10 @@ Available all afternoons PKT`;
   const handleParseInput = () => {
     if (!rawInput.trim()) return;
     setIsParsing(true);
-    setTimeout(() => {
-      const result = parseAnyRecruitmentInput(rawInput, existingCandidates);
-      setParseResult(result);
-      setParsedCandidates(result.candidates);
-      setIsParsing(false);
-    }, 150);
+    const result = parseAnyRecruitmentInput(rawInput, existingCandidates);
+    setParseResult(result);
+    setParsedCandidates(result.candidates);
+    setIsParsing(false);
   };
 
   // Remove a candidate row before scheduling

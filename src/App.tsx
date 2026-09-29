@@ -60,6 +60,7 @@ import {
   addCandidate,
   updateCandidate,
   deleteCandidate,
+  batchDeleteCandidates,
   recordReminderSent,
   getUserSettings,
   UserSettings,
@@ -1042,9 +1043,7 @@ export default function App() {
         }
       }
 
-      for (const id of ids) {
-        await deleteCandidate(id);
-      }
+      await batchDeleteCandidates(ids);
       setCandidates((prev) => prev.filter((c) => !c.id || !selectedCandidateIds.has(c.id)));
       setSelectedCandidateIds(new Set());
       setShowBatchDeleteConfirm(false);

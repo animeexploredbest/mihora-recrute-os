@@ -23,7 +23,7 @@ export interface StudentInviteSessionConfig {
 
 export const SAMPLE_STUDENT_PRESETS = [
   {
-    label: '🎓 Full-Stack Study Sprint (5 Scholars)',
+    label: '🎓 Full-Stack Study Sprint',
     title: 'Full-Stack Architecture & React Core Deep Dive',
     type: 'study' as const,
     theme: 'sapphire' as EmailColorTheme,
@@ -33,16 +33,10 @@ export const SAMPLE_STUDENT_PRESETS = [
       'Database concurrency & PostgreSQL query tuning',
       'Live architecture teardown & open student Q&A',
     ],
-    emails: [
-      'ahmed.khan@gmail.com',
-      'zainab.student@gmail.com',
-      'hamza.dev@gmail.com',
-      'bilal.cs@gmail.com',
-      'sara.tech@gmail.com',
-    ],
+    emails: [],
   },
   {
-    label: '💬 English & Tech Conversation Club (6 Members)',
+    label: '💬 English & Tech Conversation Club',
     title: 'Weekly Tech Conversation & Interview Speaking Circle',
     type: 'conversation' as const,
     theme: 'emerald' as EmailColorTheme,
@@ -52,17 +46,10 @@ export const SAMPLE_STUDENT_PRESETS = [
       'Breakout roleplay: Disagreeing respectfully with a Tech Lead',
       'Group feedback & vocabulary enhancement',
     ],
-    emails: [
-      'usman.speaking@gmail.com',
-      'areeba.talks@gmail.com',
-      'daniyal.eng@gmail.com',
-      'fatima.connect@gmail.com',
-      'omar.global@gmail.com',
-      'iqra.study@gmail.com',
-    ],
+    emails: [],
   },
   {
-    label: '🚀 AI & LLM Systems Masterclass (8 Students)',
+    label: '🚀 AI & LLM Systems Masterclass',
     title: 'Building Production AI Agents & Prompt Ingestion Systems',
     type: 'masterclass' as const,
     theme: 'amethyst' as EmailColorTheme,
@@ -72,16 +59,7 @@ export const SAMPLE_STUDENT_PRESETS = [
       'Connecting Gemini Flash with server-side proxy routes',
       'Hands-on agent workflow deployment',
     ],
-    emails: [
-      'ali.ai@gmail.com',
-      'mahnoor.dev@gmail.com',
-      'saad.ml@gmail.com',
-      'hira.code@gmail.com',
-      'farhan.data@gmail.com',
-      'ayesha.tech@gmail.com',
-      'hassan.study@gmail.com',
-      'mariam.stem@gmail.com',
-    ],
+    emails: [],
   },
 ];
 
@@ -98,45 +76,19 @@ function escapeHtml(str: string): string {
 }
 
 /**
- * Generates an authentic, intelligent, deterministic Google Meet Room URL and Conference PIN
- * strictly derived from session title, date, time selection, and optional seed
+ * Resolves Google Meet URL for session, defaulting to Google's official 1-click meeting launcher
  */
 export function generateIntelligentMeetRoom(
-  sessionTitle: string,
-  sessionDate: string,
-  sessionTimePkt: string,
-  seedModifier: number = 0
+  _sessionTitle: string,
+  _sessionDate: string,
+  _sessionTimePkt: string,
+  _seedModifier: number = 0
 ): { meetUrl: string; conferenceId: string; pin: string } {
-  // Deterministic seed from title + date + time + optional seedModifier
-  const timeKey = `${sessionDate}_${sessionTimePkt}_${seedModifier}`.replace(/[^0-9]/g, '');
-  let hash = 0;
-  const combined = `${sessionTitle}_${timeKey}`;
-  for (let i = 0; i < combined.length; i++) {
-    hash = (hash << 5) - hash + combined.charCodeAt(i);
-    hash |= 0;
-  }
-
-  // Generate authentic Google Meet format: 3 letters - 4 letters - 3 letters
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  const getLetters = (seedVal: number, len: number) => {
-    let res = '';
-    let val = Math.abs(seedVal);
-    for (let i = 0; i < len; i++) {
-      res += letters[val % 26];
-      val = Math.floor(val / 26) + (i * 7) + 13;
-    }
-    return res;
+  return {
+    meetUrl: 'https://meet.google.com/new',
+    conferenceId: 'new',
+    pin: '',
   };
-
-  const part1 = getLetters(hash ^ 0x5a5a, 3);
-  const part2 = getLetters((hash >> 3) ^ 0x1f2e, 4);
-  const part3 = getLetters((hash >> 7) ^ 0x8c7d, 3);
-
-  const conferenceId = `${part1}-${part2}-${part3}`;
-  const meetUrl = `https://meet.google.com/${conferenceId}`;
-  const pin = String((Math.abs(hash) % 900000) + 100000); // 6-digit numeric PIN
-
-  return { meetUrl, conferenceId, pin };
 }
 
 /**

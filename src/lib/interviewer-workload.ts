@@ -60,6 +60,19 @@ export const DEFAULT_TEAM_INTERVIEWERS: Omit<
   'liveActiveInterviews' | 'liveCompletedInterviews' | 'liveTodayInterviews' | 'assignedCountForBatch'
 >[] = [
   {
+    id: 'animeexploredbest@gmail.com',
+    name: 'Administrator',
+    email: 'animeexploredbest@gmail.com',
+    role: 'Principal Evaluator & Admin',
+    seniority: 'Lead',
+    skills: ['Architecture', 'System Design', 'Full-Stack', 'Evaluation', 'Leadership'],
+    avatarGradient: 'from-blue-600 to-indigo-600 text-white',
+    enabled: true,
+    dailyMaxCapacity: 5,
+    batchTargetQuota: 3,
+    weight: 4,
+  },
+  {
     id: 'm.mattiulhasnain@gmail.com',
     name: 'Matti Ul Hasnain',
     email: 'm.mattiulhasnain@gmail.com',

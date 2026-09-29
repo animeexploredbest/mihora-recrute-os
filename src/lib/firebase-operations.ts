@@ -172,11 +172,11 @@ export const addCandidate = async (candidate: Omit<Candidate, 'id'>): Promise<Ca
       timezoneLabel: candidate.timezoneLabel || 'PKT (UTC+5)',
       durationMinutes: candidate.durationMinutes || 45,
       activities: candidate.activities && candidate.activities.length > 0 ? candidate.activities : [initialActivity],
-      originalAvailability: candidate.originalAvailability || 'Custom',
-      location: candidate.location || 'Remote',
+      originalAvailability: candidate.originalAvailability || '',
+      location: candidate.location || '',
       country: candidate.country || '',
       city: candidate.city || '',
-      phone: candidate.phone || 'N/A',
+      phone: candidate.phone || '',
       notes: candidate.notes || '',
       resumeLink: candidate.resumeLink || '',
       linkedinUrl: candidate.linkedinUrl || '',
@@ -491,6 +491,24 @@ export const batchUpdateCandidates = async (
     await withTimeout(batch.commit(), 30000, 'Batch candidate scheduling timed out.');
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+/**
+ * Atomically deletes multiple candidate documents in Firestore via writeBatch
+ */
+export const batchDeleteCandidates = async (ids: string[]): Promise<void> => {
+  if (!ids || ids.length === 0) return;
+  const path = 'candidates';
+  try {
+    const batch = writeBatch(db);
+    for (const id of ids) {
+      const docRef = doc(db, 'candidates', id);
+      batch.delete(docRef);
+    }
+    await withTimeout(batch.commit(), 25000, 'Batch candidate deletion timed out.');
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 };
 
