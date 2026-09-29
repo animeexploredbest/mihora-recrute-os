@@ -37,6 +37,7 @@ export const HerokuDeployModal: React.FC<HerokuDeployModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
+  const [syncErrorMsg, setSyncErrorMsg] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'status' | 'guide' | 'env' | 'schema'>('status');
 
@@ -64,18 +65,19 @@ export const HerokuDeployModal: React.FC<HerokuDeployModalProps> = ({
 
   const handleSyncToHeroku = async () => {
     if (candidates.length === 0) {
-      alert('No candidates currently loaded to migrate.');
+      setSyncErrorMsg('No candidates currently loaded to migrate.');
       return;
     }
     setIsSyncing(true);
     setSyncSuccessMsg(null);
+    setSyncErrorMsg(null);
     try {
       const res = await syncCandidatesToHeroku(candidates);
       setSyncSuccessMsg(`Successfully synced ${res.count} candidates to Heroku Postgres!`);
       setStatus(res.dbStatus);
       if (onRefreshData) onRefreshData();
     } catch (err: any) {
-      alert(`Sync failed: ${err.message}`);
+      setSyncErrorMsg(`Sync failed: ${err.message}`);
     } finally {
       setIsSyncing(false);
     }
@@ -287,6 +289,13 @@ export const HerokuDeployModal: React.FC<HerokuDeployModalProps> = ({
                   <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>{syncSuccessMsg}</span>
+                  </div>
+                )}
+
+                {syncErrorMsg && (
+                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{syncErrorMsg}</span>
                   </div>
                 )}
               </div>

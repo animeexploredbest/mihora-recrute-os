@@ -1,6 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../lib/theme';
-import { Database, Video, Mail, CheckCircle2, AlertCircle, ChevronDown, ExternalLink, ShieldCheck, RefreshCw, Loader2 } from 'lucide-react';
+import {
+  Database,
+  Video,
+  Mail,
+  CheckCircle2,
+  AlertCircle,
+  ChevronDown,
+  ExternalLink,
+  ShieldCheck,
+  RefreshCw,
+  Loader2,
+  CheckSquare,
+} from 'lucide-react';
 import { CalendarVerificationResult } from '../lib/calendar-verifier';
 
 interface SystemStatusPopoverProps {
@@ -10,6 +22,8 @@ interface SystemStatusPopoverProps {
   isValidatingCalendar?: boolean;
   onConnectCalendar: () => void;
   onVerifyCalendar?: () => void;
+  onOpenGoogleTasks?: () => void;
+  onOpenGoogleMeet?: () => void;
 }
 
 export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
@@ -19,6 +33,8 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
   isValidatingCalendar,
   onConnectCalendar,
   onVerifyCalendar,
+  onOpenGoogleTasks,
+  onOpenGoogleMeet,
 }) => {
   const { colors } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -71,14 +87,14 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
       {/* Popover Dropdown Panel */}
       {isOpen && (
         <div
-          className={`absolute right-0 mt-2 w-80 sm:w-88 rounded-2xl p-4 border shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 ${colors.cardBg} ${colors.border}`}
+          className={`absolute right-0 mt-2 w-84 sm:w-92 rounded-2xl p-4 border shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 ${colors.cardBg} ${colors.border}`}
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-stone-200/60 dark:border-stone-800">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <h4 className={`text-xs font-bold font-display ${colors.textPrimary}`}>
-                System &amp; Integration Health
+                Workspace &amp; Integrations
               </h4>
             </div>
             <span
@@ -88,7 +104,7 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
                   : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20'
               }`}
             >
-              {allOperational ? 'All Systems OK' : 'Degraded'}
+              {allOperational ? 'Connected' : 'Degraded'}
             </span>
           </div>
 
@@ -101,9 +117,9 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
                   <Database className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className={`font-semibold truncate ${colors.textPrimary}`}>Firestore Database</p>
+                  <p className={`font-semibold truncate ${colors.textPrimary}`}>Firebase Firestore</p>
                   <p className={`text-[11px] ${colors.textMuted} truncate`}>
-                    {dbConnected ? 'Real-time sync active (Cloud Run)' : 'Attempting to reconnect...'}
+                    {dbConnected ? 'Real-time candidate pipeline' : 'Reconnecting...'}
                   </p>
                 </div>
               </div>
@@ -113,7 +129,7 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
               </div>
             </div>
 
-            {/* 2. Google Calendar & Meet */}
+            {/* 2. Google Calendar */}
             <div className={`p-2.5 rounded-xl border flex flex-col gap-2 ${colors.subtleBg} ${colors.borderLight}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -121,13 +137,13 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
                     <Video className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className={`font-semibold truncate ${colors.textPrimary}`}>Google Calendar &amp; Meet</p>
+                    <p className={`font-semibold truncate ${colors.textPrimary}`}>Google Calendar</p>
                     <p className={`text-[11px] ${colors.textMuted} truncate`}>
                       {isCalendarConnected
                         ? (calendarVerification?.valid
-                            ? `Primary: ${calendarVerification.summary || 'Connected'} (${calendarVerification.timeZone || 'UTC'})`
+                            ? `Primary: ${calendarVerification.summary || 'Connected'} (${calendarVerification.timeZone || 'PKT'})`
                             : 'Verified Google OAuth token')
-                        : 'No active Google Calendar token'}
+                        : 'Connect to sync events'}
                     </p>
                   </div>
                 </div>
@@ -169,15 +185,80 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
                 </div>
               </div>
 
-              {/* Verified details chip if available */}
               {isCalendarConnected && calendarVerification?.valid && (
                 <div className="text-[10px] font-mono px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 rounded-md truncate">
-                  Google Calendar API: 200 OK • {calendarVerification.calendarId || 'primary'}
+                  Google Calendar: 200 OK • {calendarVerification.calendarId || 'primary'}
                 </div>
               )}
             </div>
 
-            {/* 3. Titan Mail SMTP */}
+            {/* 3. Google Meet */}
+            <div className={`p-2.5 rounded-xl border flex items-center justify-between ${colors.subtleBg} ${colors.borderLight}`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Video className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className={`font-semibold truncate ${colors.textPrimary}`}>Google Meet Rooms</p>
+                  <p className={`text-[11px] ${colors.textMuted} truncate`}>
+                    Auto-generated conference links
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Ready</span>
+                </span>
+                {onOpenGoogleMeet && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenGoogleMeet();
+                      setIsOpen(false);
+                    }}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-300 cursor-pointer"
+                  >
+                    Open
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Google Tasks */}
+            <div className={`p-2.5 rounded-xl border flex items-center justify-between ${colors.subtleBg} ${colors.borderLight}`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <CheckSquare className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className={`font-semibold truncate ${colors.textPrimary}`}>Google Tasks</p>
+                  <p className={`text-[11px] ${colors.textMuted} truncate`}>
+                    {isCalendarConnected ? 'Automated follow-up items' : 'Requires Google connection'}
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isCalendarConnected ? 'Synced' : 'Ready'}</span>
+                </span>
+                {onOpenGoogleTasks && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenGoogleTasks();
+                      setIsOpen(false);
+                    }}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-300 cursor-pointer"
+                  >
+                    View
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 5. Titan Mail SMTP */}
             <div className={`p-2.5 rounded-xl border flex items-center justify-between ${colors.subtleBg} ${colors.borderLight}`}>
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -199,7 +280,7 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
 
           {/* Footer note */}
           <div className="pt-2.5 border-t border-stone-200/60 dark:border-stone-800 flex items-center justify-between text-[11px]">
-            <span className={colors.textMuted}>Region: Asia-Southeast1</span>
+            <span className={colors.textMuted}>Project: gen-lang-client-0014273669</span>
             <span className="font-semibold text-amber-700 dark:text-amber-400">PKT (UTC+5)</span>
           </div>
         </div>
@@ -207,4 +288,5 @@ export const SystemStatusPopover: React.FC<SystemStatusPopoverProps> = ({
     </div>
   );
 };
+
 

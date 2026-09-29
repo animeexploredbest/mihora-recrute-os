@@ -94,6 +94,14 @@ export function CandidateModal({ initialData, allCandidates = [], onClose, onSav
 
   const handleSubmit = async (e: React.FormEvent, viewInCalendar: boolean = false) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      setModalError('Candidate name is required.');
+      return;
+    }
+    if (!formData.email.trim() || !formData.email.includes('@')) {
+      setModalError('A valid candidate email address is required.');
+      return;
+    }
     setSaving(true);
     setModalError(null);
     try {

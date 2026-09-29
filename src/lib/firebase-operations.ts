@@ -226,13 +226,37 @@ export const updateCandidate = async (id: string, data: Partial<Candidate>): Pro
 };
 
 /**
+ * Helper to safely resolve existing activities from Firestore if not provided by the caller
+ */
+async function resolveExistingActivities(
+  candidateId: string,
+  provided?: CandidateActivity[]
+): Promise<CandidateActivity[]> {
+  if (provided && provided.length > 0) {
+    return provided;
+  }
+  try {
+    const docRef = doc(db, 'candidates', candidateId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data() as Candidate;
+      return Array.isArray(data.activities) ? data.activities : [];
+    }
+  } catch (err) {
+    console.warn('Could not read existing candidate activities for merge:', err);
+  }
+  return [];
+}
+
+/**
  * Appends a new activity item to the candidate's real-time audit trail and syncs to Firestore
  */
 export const logCandidateActivity = async (
   candidateId: string,
   activity: Omit<CandidateActivity, 'id' | 'timestamp'> & { timestamp?: string },
-  existingActivities: CandidateActivity[] = []
+  existingActivities?: CandidateActivity[]
 ): Promise<CandidateActivity> => {
+  const currentList = await resolveExistingActivities(candidateId, existingActivities);
   const newActivity: CandidateActivity = {
     id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     timestamp: activity.timestamp || new Date().toISOString(),
@@ -242,7 +266,7 @@ export const logCandidateActivity = async (
     actor: activity.actor || auth.currentUser?.displayName || 'Recruiter',
   };
 
-  const updatedActivities = [newActivity, ...(existingActivities || [])];
+  const updatedActivities = [newActivity, ...currentList];
   await updateCandidate(candidateId, { activities: updatedActivities });
   return newActivity;
 };
@@ -255,8 +279,9 @@ export const advanceCandidateRound = async (
   nextRound: HiringRound,
   actorName?: string,
   note?: string,
-  existingActivities: CandidateActivity[] = []
+  existingActivities?: CandidateActivity[]
 ): Promise<void> => {
+  const currentList = await resolveExistingActivities(candidateId, existingActivities);
   const actor = actorName || auth.currentUser?.displayName || 'Recruiter';
   const newActivity: CandidateActivity = {
     id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -269,7 +294,7 @@ export const advanceCandidateRound = async (
 
   await updateCandidate(candidateId, {
     hiringRound: nextRound,
-    activities: [newActivity, ...(existingActivities || [])],
+    activities: [newActivity, ...currentList],
   });
 };
 
@@ -279,9 +304,10 @@ export const advanceCandidateRound = async (
 export const recordReminderSent = async (
   candidateId: string,
   currentCount = 0,
-  existingActivities: CandidateActivity[] = [],
+  existingActivities?: CandidateActivity[],
   notes = 'Follow-up interview reminder dispatched'
 ): Promise<string> => {
+  const currentList = await resolveExistingActivities(candidateId, existingActivities);
   const timestamp = new Date().toISOString();
   const newActivity: CandidateActivity = {
     id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -294,7 +320,7 @@ export const recordReminderSent = async (
   await updateCandidate(candidateId, {
     lastReminderSentAt: timestamp,
     reminderCount: (currentCount || 0) + 1,
-    activities: [newActivity, ...(existingActivities || [])],
+    activities: [newActivity, ...currentList],
   });
   return timestamp;
 };
@@ -304,9 +330,10 @@ export const recordReminderSent = async (
  */
 export const recordWhatsAppSent = async (
   candidateId: string,
-  existingActivities: CandidateActivity[] = [],
+  existingActivities?: CandidateActivity[],
   notes = 'Interview details sent via WhatsApp'
 ): Promise<string> => {
+  const currentList = await resolveExistingActivities(candidateId, existingActivities);
   const timestamp = new Date().toISOString();
   const newActivity: CandidateActivity = {
     id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -318,7 +345,7 @@ export const recordWhatsAppSent = async (
 
   await updateCandidate(candidateId, {
     lastWhatsAppSentAt: timestamp,
-    activities: [newActivity, ...(existingActivities || [])],
+    activities: [newActivity, ...currentList],
   });
   return timestamp;
 };

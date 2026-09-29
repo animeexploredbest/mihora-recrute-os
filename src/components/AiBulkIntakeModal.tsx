@@ -192,10 +192,17 @@ export const AiBulkIntakeModal: React.FC<AiBulkIntakeModalProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  // Active top-level tab: 1. Prompt, 2. Ingest & Time Window, 3. Quotas, 4. Plan Preview, 5. Dispatch
-  const [activeTab, setActiveTab] = useState<'prompt' | 'ingest' | 'quotas' | 'preview' | 'dispatch'>('prompt');
+  // Active top-level tab: 1. Ingest (default), 2. Quotas & Time, 3. Plan Preview, 4. Dispatch, 5. Master Prompt
+  const [activeTab, setActiveTab] = useState<'ingest' | 'quotas' | 'preview' | 'dispatch' | 'prompt'>('ingest');
 
-  // Tab 1: Master Prompt Configuration State
+  // AI Extraction & Direct Ingest State
+  const [isExtractingWithAi, setIsExtractingWithAi] = useState<boolean>(false);
+  const [aiExtractionError, setAiExtractionError] = useState<string | null>(null);
+  const [aiSuccessMsg, setAiSuccessMsg] = useState<string | null>(null);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Tab 1: Master Prompt Configuration State (optional external generator)
   const [promptFormat, setPromptFormat] = useState<'markdown' | 'json'>('markdown');
   const [targetRole, setTargetRole] = useState<string>('');
   const [defaultTimezone, setDefaultTimezone] = useState<string>('Asia/Karachi');
@@ -330,7 +337,242 @@ export const AiBulkIntakeModal: React.FC<AiBulkIntakeModalProps> = ({
     }
   };
 
-  // Run parser on pasted text
+  const SAMPLE_DEVELOPERS = `1. Hamza Tariq
+Role: Senior Full Stack Developer (React & Node.js)
+Email: hamza.tariq@gmail.com
+Phone: +92 301 4455667
+Location: Lahore, Pakistan
+Availability: Available weekdays after 3:00 PM PKT
+
+2. Sara Jenkins
+Role: Cloud Solutions Architect (AWS / Kubernetes)
+Email: s.jenkins.cloud@gmail.com
+Phone: +1 415-890-1234
+Location: San Francisco, United States
+Availability: Flexible between 9:00 AM - 1:00 PM PST
+
+3. Bilal Ahmed
+Role: Senior Python & Django Engineer
+Email: bilal.ahmed.eng@gmail.com
+Phone: +92 333 5556677
+Location: Karachi, Pakistan
+Availability: Available tomorrow 11:00 AM PKT`;
+
+  const SAMPLE_WHATSAPP = `[10:15 AM] Applicant 1: Ayesha Malik
+Role: Frontend Engineer (Next.js, Tailwind)
+Email: ayesha.malik@outlook.com, Cell: +92 321 9876543, Islamabad
+Free slots: Thursday 2:00 PM PKT or Friday 4:00 PM PKT
+
+[10:42 AM] Applicant 2: Tariq Mehmood
+Senior DevOps & Infrastructure Engineer
+tariq.k8s@gmail.com | +92 300 1122334 | Rawalpindi
+Available all afternoons PKT`;
+
+  const SAMPLE_TABLE = `| Name | Email | Phone | City | Country | Timezone | Position | Original Availability |
+| Alice Khan | alice@example.com | +92 300 1234567 | Karachi | Pakistan | Asia/Karachi | Senior React Dev | Tomorrow 3pm PKT |
+| Bob Smith | bob@example.com | +1 555-0199 | New York | United States | America/New_York | Cloud Architect | Weekdays 2pm EST |`;
+
+  const processAiExtractedData = (data: any[]) => {
+    if (!Array.isArray(data) || data.length === 0) {
+      setAiExtractionError('No candidates could be recognized from the text.');
+      return;
+    }
+
+    const existingEmailSet = new Set(
+      existingCandidates.map((c) => c.email.trim().toLowerCase()).filter(Boolean)
+    );
+
+    const items: ParsedCandidateItem[] = data.map((item: any, idx: number) => {
+      const name = (item.name || `Candidate ${idx + 1}`).trim();
+      const email =
+        (item.email || '').trim().toLowerCase() ||
+        `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@candidate.recruitsync.local`;
+      const phone = (item.phone || '').trim() || '+92 300 0000000';
+      const city = item.city || 'Karachi';
+      const country = item.country || 'Pakistan';
+      const location = item.location || (item.city ? `${item.city}, ${country}` : country);
+      const tzInfo = resolveCandidateTimezone({ timezone: item.timezone, country, location });
+      const isDup = existingEmailSet.has(email);
+
+      return {
+        id: `cand_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
+        name,
+        email,
+        phone,
+        city,
+        country,
+        location,
+        timezone: tzInfo.tz,
+        timezoneLabel: tzInfo.label,
+        position: item.position || 'Software Engineer',
+        originalAvailability: item.originalAvailability || item.availability || 'Standard business hours',
+        notes: item.summary
+          ? `${item.summary}${item.skills ? ` • Skills: ${item.skills}` : ''}`
+          : item.skills || 'Extracted via Gemini AI',
+        resumeLink: item.resumeLink || 'https://drive.google.com/recruitsync/resumes',
+        linkedinUrl: item.linkedinUrl,
+        githubUrl: item.githubUrl,
+        portfolioUrl: item.portfolioUrl,
+        assignedInterviewer: item.assignedInterviewer,
+        isDuplicate: isDup,
+        status: 'Pending' as const,
+      };
+    });
+
+    const dups = items.filter((i) => i.isDuplicate).length;
+    setParseResult({
+      candidates: items,
+      detectedFormat: 'json',
+      duplicateCount: dups,
+      totalParsed: items.length,
+      warnings: dups > 0 ? [`${dups} candidate(s) already in pipeline`] : [],
+    });
+    setParsedCandidates(items);
+    setAiSuccessMsg(`✨ Successfully extracted ${items.length} candidate profile(s) with Gemini AI!`);
+  };
+
+  // Run Gemini AI extractor on pasted text
+  const handleAiGeminiExtract = async (textToParse?: string) => {
+    const input = (textToParse || rawInput).trim();
+    if (!input) return;
+    setIsExtractingWithAi(true);
+    setAiExtractionError(null);
+    setAiSuccessMsg(null);
+
+    try {
+      const res = await fetch('/api/bulk-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: input }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        const fallback = parseAnyRecruitmentInput(input, existingCandidates);
+        if (fallback.candidates.length > 0) {
+          setParseResult(fallback);
+          setParsedCandidates(fallback.candidates);
+          setAiSuccessMsg(`Parsed ${fallback.candidates.length} candidate(s) via structured text detection.`);
+        } else {
+          setAiExtractionError('No candidate profiles could be extracted. Please paste candidate details or use sample data.');
+        }
+        return;
+      }
+
+      processAiExtractedData(data);
+    } catch (err: any) {
+      console.warn('Gemini extraction error, falling back to local regex:', err);
+      const fallback = parseAnyRecruitmentInput(input, existingCandidates);
+      if (fallback.candidates.length > 0) {
+        setParseResult(fallback);
+        setParsedCandidates(fallback.candidates);
+        setAiSuccessMsg(`Parsed ${fallback.candidates.length} candidate(s) via fallback detection.`);
+      } else {
+        setAiExtractionError(`AI extraction notice: ${err?.message || 'Could not parse text'}. Please try again or test with sample buttons.`);
+      }
+    } finally {
+      setIsExtractingWithAi(false);
+    }
+  };
+
+  // Upload and parse document file (PDF, TXT, CSV, JSON)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1];
+        setRawInput(`[Uploaded PDF Document: ${file.name}]`);
+        setIsExtractingWithAi(true);
+        setAiExtractionError(null);
+        setAiSuccessMsg(null);
+        try {
+          const res = await fetch('/api/bulk-analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileBase64: base64, mimeType: 'application/pdf' }),
+          });
+          if (!res.ok) throw new Error(`Document extraction failed (${res.status})`);
+          const data = await res.json();
+          processAiExtractedData(data);
+        } catch (err: any) {
+          setAiExtractionError(err?.message || 'Failed to extract from PDF document.');
+        } finally {
+          setIsExtractingWithAi(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (text) {
+          setRawInput(text);
+          handleAiGeminiExtract(text);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Direct Ingest to Firestore pipeline as Pending candidates
+  const handleDirectIngestToFirestore = async () => {
+    if (parsedCandidates.length === 0) return;
+    setIsExecuting(true);
+    setExecutionPhase('Writing candidate profiles to Firestore live database...');
+    setExecutionError(null);
+
+    try {
+      const candidatesToCreate = parsedCandidates.map((c) => ({
+        name: c.name,
+        email: c.email,
+        phone: c.phone || '',
+        location: c.location || '',
+        country: c.country || '',
+        city: c.city || '',
+        timezone: c.timezone || 'Asia/Karachi',
+        timezoneLabel: c.timezoneLabel || 'PKT (UTC+5)',
+        position: c.position || 'Software Engineer',
+        originalAvailability: c.originalAvailability || '',
+        suggestedPktTime: '',
+        durationMinutes: 45,
+        status: 'Pending' as const,
+        notes: c.notes || 'Ingested via AI Bulk Engine',
+        resumeLink: c.resumeLink,
+        linkedinUrl: c.linkedinUrl,
+        githubUrl: c.githubUrl,
+        portfolioUrl: c.portfolioUrl,
+        assignedInterviewer: c.assignedInterviewer,
+      }));
+
+      const created = await batchAddCandidates(candidatesToCreate);
+      broadcastLiveSync('BATCH_SCHEDULE_COMPLETED', {
+        count: created.length,
+        scheduled: 0,
+      });
+
+      if (onSuccess) {
+        onSuccess(created.length, 0);
+      }
+      onClose();
+    } catch (err: any) {
+      console.error('Direct Firestore ingest error:', err);
+      setExecutionError(err?.message || 'Failed to write candidates to database.');
+    } finally {
+      setIsExecuting(false);
+      setExecutionPhase('');
+    }
+  };
+
+  // Run parser on pasted text (Fast local regex fallback)
   const handleParseInput = () => {
     if (!rawInput.trim()) return;
     setIsParsing(true);
@@ -339,7 +581,7 @@ export const AiBulkIntakeModal: React.FC<AiBulkIntakeModalProps> = ({
       setParseResult(result);
       setParsedCandidates(result.candidates);
       setIsParsing(false);
-    }, 200);
+    }, 150);
   };
 
   // Remove a candidate row before scheduling
@@ -649,7 +891,7 @@ export const AiBulkIntakeModal: React.FC<AiBulkIntakeModalProps> = ({
       }
     } catch (err: any) {
       console.error('Batch commit error:', err);
-      alert(err?.message || 'Failed to commit batch to live database.');
+      setExecutionError(err?.message || 'Failed to commit batch to live database.');
     } finally {
       setIsExecuting(false);
       setExecutionPhase('');
@@ -734,7 +976,14 @@ export const AiBulkIntakeModal: React.FC<AiBulkIntakeModalProps> = ({
     const bodyText = encodeURIComponent(
       `Dear Candidates,\n\nWe are pleased to invite you to your upcoming technical interview sessions.\n\nYour individual video meeting links and confirmed timeslots have been generated. Please refer to your personalized confirmation email or reply directly to this thread for any queries.\n\nBest regards,\nThe Hiring Team`
     );
-    window.open(`https://mail.google.com/mail/?view=cm&fs=1&bcc=${bccParam}&su=${subject}&body=${bodyText}`, '_blank');
+    const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${bccParam}&su=${subject}&body=${bodyText}`;
+    const link = document.createElement('a');
+    link.href = mailUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (

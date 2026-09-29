@@ -1,11 +1,12 @@
 {
-  "projectId": "gen-lang-client-0528499951",
-  "appId": "1:779652729925:web:43def399a37816be63272c",
-  "apiKey": "AIzaSyDeD7kx-HIG-u-FrFubzuI85-STpjvw5r0",
-  "authDomain": "gen-lang-client-0528499951.firebaseapp.com",
-  "storageBucket": "gen-lang-client-0528499951.firebasestorage.app",
-  "messagingSenderId": "779652729925",
+  "projectId": "gen-lang-client-0014273669",
+  "appId": "1:285118499827:web:468a782dd2db65d7352086",
+  "apiKey": "AIzaSyD9H1ynIvWFvHyt3CA7gEQPt5-W0oF8I1U",
+  "authDomain": "gen-lang-client-0014273669.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-mihorarecruteos-43c89191-f944-4a1b-9534-348ba7021d2b",
+  "storageBucket": "gen-lang-client-0014273669.firebasestorage.app",
+  "messagingSenderId": "285118499827",
   "measurementId": "",
-  "oAuthClientId": "779652729925-plametogjh3lvd2arfcd856arib800uh.apps.googleusercontent.com",
+  "oAuthClientId": "285118499827-ghtpd9alopltfl4bafp44qu4v3561s0u.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

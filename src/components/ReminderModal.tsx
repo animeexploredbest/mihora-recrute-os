@@ -105,16 +105,13 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       ? `https://api.whatsapp.com/send?phone=${cleanPhone.replace('+', '')}&text=${encoded}`
       : `https://api.whatsapp.com/send?text=${encoded}`;
     try {
-      const w = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!w) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch {
       window.location.href = url;
     }
@@ -231,12 +228,22 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       }
 
       // 3. If direct sending fails, fallback to opening mailto client
-      window.open(`mailto:${candidate.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(messageText)}`, '_blank');
+      const mailtoUrl = `mailto:${candidate.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(messageText)}`;
+      const mailtoLink = document.createElement('a');
+      mailtoLink.href = mailtoUrl;
+      document.body.appendChild(mailtoLink);
+      mailtoLink.click();
+      document.body.removeChild(mailtoLink);
       setEmailSuccess(`Opened in your mail client for ${candidate.email}`);
       if (candidate.id && onReminderSent) await onReminderSent(candidate.id);
     } catch (err: any) {
       console.warn('Direct email send error:', err);
-      window.open(`mailto:${candidate.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(messageText)}`, '_blank');
+      const mailtoUrl = `mailto:${candidate.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(messageText)}`;
+      const mailtoLink = document.createElement('a');
+      mailtoLink.href = mailtoUrl;
+      document.body.appendChild(mailtoLink);
+      mailtoLink.click();
+      document.body.removeChild(mailtoLink);
       setEmailSuccess(`Opened in your mail client`);
     } finally {
       setIsSendingEmail(false);

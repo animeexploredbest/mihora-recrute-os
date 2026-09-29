@@ -144,16 +144,13 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     const rawPhone = phoneToUse !== undefined ? phoneToUse : recipientPhone;
     const url = generateWhatsAppUrl(formattedText, rawPhone, singleCandidate?.country);
     try {
-      const w = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!w) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch {
       window.location.href = url;
     }
@@ -514,7 +511,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               </div>
             </div>
 
-            {/* Simulated WhatsApp Chat Room Screen */}
+            {/* Live WhatsApp Message Preview */}
             <div className="relative rounded-2xl p-4 sm:p-5 bg-[#efeae2] dark:bg-[#0b141a] border border-stone-300 dark:border-stone-800 shadow-inner font-sans min-h-[260px] max-h-[380px] overflow-y-auto">
               {/* WhatsApp message bubble */}
               <div className="max-w-xl mx-auto bg-white dark:bg-[#202c33] text-stone-800 dark:text-[#e9edef] rounded-2xl p-4 shadow-sm border border-stone-200/50 dark:border-stone-700/50 relative">

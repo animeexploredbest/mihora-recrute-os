@@ -85,12 +85,6 @@ export function printCandidateSummaryReport(
   candidates: Candidate[],
   reportTitle = 'RecruitSync — Executive Interview & Hiring Report'
 ): void {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Please allow popups to preview and print the executive summary report.');
-    return;
-  }
-
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -242,7 +236,38 @@ export function printCandidateSummaryReport(
     </html>
   `;
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  try {
+    const existingFrame = document.getElementById('recruit-sync-print-frame');
+    if (existingFrame && existingFrame.parentNode) {
+      existingFrame.parentNode.removeChild(existingFrame);
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'recruit-sync-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const frameDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (frameDoc) {
+      frameDoc.open();
+      frameDoc.write(html);
+      frameDoc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+        }, 5000);
+      }, 500);
+    }
+  } catch (err) {
+    console.warn('Silent iframe print fallback notice:', err);
+  }
 }

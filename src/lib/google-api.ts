@@ -373,3 +373,210 @@ export const deleteCalendarEvent = async (
     return false;
   }
 };
+
+export interface GoogleTaskItem {
+  id: string;
+  title: string;
+  notes?: string;
+  status: 'needsAction' | 'completed';
+  due?: string;
+  updated?: string;
+  completed?: string;
+  webViewLink?: string;
+}
+
+/**
+ * List real Google Tasks for recruiter follow-ups
+ */
+export async function listGoogleTasks(accessToken: string): Promise<GoogleTaskItem[]> {
+  if (!accessToken) return [];
+  try {
+    const res = await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?showCompleted=true&showHidden=true', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!res.ok) {
+      console.warn('Failed to fetch Google Tasks:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return (data.items || []).map((t: any) => ({
+      id: t.id,
+      title: t.title || '(Untitled Task)',
+      notes: t.notes || '',
+      status: t.status === 'completed' ? 'completed' : 'needsAction',
+      due: t.due,
+      updated: t.updated,
+      completed: t.completed,
+      webViewLink: 'https://tasks.google.com',
+    }));
+  } catch (err) {
+    console.error('Error listing Google Tasks:', err);
+    return [];
+  }
+}
+
+/**
+ * Create a new task in Google Tasks
+ */
+export async function createGoogleTask(
+  accessToken: string,
+  params: { title: string; notes?: string; due?: string }
+): Promise<GoogleTaskItem | null> {
+  if (!accessToken) throw new Error('Google OAuth access token is required to create a task.');
+  const payload: any = {
+    title: params.title,
+    notes: params.notes || '',
+  };
+  if (params.due) {
+    payload.due = new Date(params.due).toISOString();
+  }
+
+  const res = await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Google Tasks creation failed (${res.status}): ${errText}`);
+  }
+
+  const t = await res.json();
+  return {
+    id: t.id,
+    title: t.title,
+    notes: t.notes || '',
+    status: t.status === 'completed' ? 'completed' : 'needsAction',
+    due: t.due,
+    updated: t.updated,
+    completed: t.completed,
+    webViewLink: 'https://tasks.google.com',
+  };
+}
+
+/**
+ * Toggle or update Google Task completion status
+ */
+export async function updateGoogleTaskStatus(
+  accessToken: string,
+  taskId: string,
+  completed: boolean
+): Promise<boolean> {
+  if (!accessToken || !taskId) return false;
+  try {
+    const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(taskId)}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: completed ? 'completed' : 'needsAction',
+        completed: completed ? new Date().toISOString() : null,
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('Error updating Google Task status:', err);
+    return false;
+  }
+}
+
+/**
+ * Delete a task in Google Tasks
+ */
+export async function deleteGoogleTask(
+  accessToken: string,
+  taskId: string
+): Promise<boolean> {
+  if (!accessToken || !taskId) return false;
+  try {
+    const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(taskId)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    return res.ok || res.status === 404;
+  } catch (err) {
+    console.error('Error deleting Google Task:', err);
+    return false;
+  }
+}
+
+/**
+ * Verifies real Google Tasks API connectivity
+ */
+export async function verifyGoogleTasksAccess(accessToken: string): Promise<boolean> {
+  if (!accessToken) return false;
+  try {
+    const res = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Creates an authentic Google Meet room (via Google Calendar conferenceData API or Meet API)
+ */
+export async function createInstantGoogleMeet(accessToken?: string): Promise<{
+  meetLink: string;
+  source: 'calendar_meet' | 'meet_api' | 'meet_new';
+}> {
+  // If we have an active access token, create a verified conference via Google Calendar API
+  if (accessToken) {
+    try {
+      const now = new Date();
+      const end = new Date(now.getTime() + 60 * 60 * 1000);
+      const res = await fetch(
+        'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=none',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            summary: 'RecruitSync — Instant Video Room',
+            description: 'On-demand Google Meet session generated via RecruitSync.',
+            start: { dateTime: now.toISOString() },
+            end: { dateTime: end.toISOString() },
+            conferenceData: {
+              createRequest: {
+                requestId: `meet_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+                conferenceSolutionKey: { type: 'hangoutsMeet' },
+              },
+            },
+          }),
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const uri = data.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === 'video')?.uri;
+        if (uri) {
+          return { meetLink: uri, source: 'calendar_meet' };
+        }
+      }
+    } catch (e) {
+      console.warn('Calendar conference creation note:', e);
+    }
+  }
+
+  // Fallback to Google's official one-click meeting launcher
+  return {
+    meetLink: 'https://meet.google.com/new',
+    source: 'meet_new',
+  };
+}

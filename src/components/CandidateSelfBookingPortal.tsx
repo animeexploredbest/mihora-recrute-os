@@ -178,11 +178,8 @@ export const CandidateSelfBookingPortal: React.FC<CandidateSelfBookingPortalProp
     if (!selectedSlotIso || !candidate.id) return;
     setIsSubmitting(true);
     try {
-      // Generate a clean Google Meet room code
-      const randCode = `${Math.random().toString(36).substring(2, 5)}-${Math.random()
-        .toString(36)
-        .substring(2, 6)}-${Math.random().toString(36).substring(2, 5)}`;
-      const meetLink = candidate.meetLink || `https://meet.google.com/${randCode}`;
+      // Retain verified meetLink if assigned by recruiter; never generate unverified random codes
+      const meetLink = candidate.meetLink || '';
 
       const updatedPayload: Partial<Candidate> = {
         suggestedPktTime: selectedSlotIso,

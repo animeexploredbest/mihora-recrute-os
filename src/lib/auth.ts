@@ -1,10 +1,11 @@
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from './firebase';
 import { AppUser } from '../types';
 
 export const HARD_BLOCKED_EMAILS = ['zainabfatima25.g@gmail.com'];
 
 export const AUTHORIZED_GOOGLE_EMAILS = [
+  'spideraneesf@gmail.com',
   'omema19022026@gmail.com',
   'm.mattiulhasnain@gmail.com',
   'mihora.tech@gmail.com',
@@ -25,14 +26,37 @@ export const isEmailBlocked = (email?: string | null): boolean => {
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/meetings.space.created',
+  'https://www.googleapis.com/auth/meetings.space.readonly',
 ];
 
 const PG_TOKEN_KEY = 'recruitsync_jwt_token';
 const PG_USER_KEY = 'recruitsync_auth_user';
+const GOOGLE_TOKEN_KEY = 'recruitsync_google_access_token';
 
 let currentAuthUser: AppUser | null = null;
-let cachedAccessToken: string | null = null;
+let cachedAccessToken: string | null = (() => {
+  try {
+    return typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(GOOGLE_TOKEN_KEY) : null;
+  } catch {
+    return null;
+  }
+})();
 let isSigningIn = false;
+
+const setCachedAccessToken = (token: string | null) => {
+  cachedAccessToken = token;
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (token) {
+        sessionStorage.setItem(GOOGLE_TOKEN_KEY, token);
+      } else {
+        sessionStorage.removeItem(GOOGLE_TOKEN_KEY);
+      }
+    }
+  } catch {}
+};
 
 const authListeners: ((user: AppUser | null, token: string | null) => void)[] = [];
 
@@ -130,7 +154,7 @@ export const requestCalendarAccess = async (): Promise<string> => {
       throw new Error('Failed to acquire OAuth access token from Google.');
     }
 
-    cachedAccessToken = credential.accessToken;
+    setCachedAccessToken(credential.accessToken);
     notifyListeners(currentAuthUser, cachedAccessToken);
     return cachedAccessToken;
   } catch (error: any) {
@@ -163,23 +187,19 @@ export const googleSignIn = async (): Promise<{ user: AppUser; accessToken: stri
       throw new Error(`Access Denied: ${gUser.email} is permanently restricted from this system.`);
     }
 
-    if (!isAuthorizedGoogleEmail(cleanEmail)) {
-      await auth.signOut();
-      throw new Error(
-        `Access Denied: "${gUser.email}" is not authorized for Google Sign-In. Google Sign-In is specially designated for primary team administrators (omema19022026@gmail.com, m.mattiulhasnain@gmail.com, mihora.tech@gmail.com). Team members created by administrators must sign in using their assigned Username & Password.`
-      );
-    }
+    setCachedAccessToken(credential.accessToken);
 
-    cachedAccessToken = credential.accessToken;
-
+    const isAdmin = isAuthorizedGoogleEmail(cleanEmail);
     const adminName =
-      cleanEmail === 'omema19022026@gmail.com'
+      cleanEmail === 'spideraneesf@gmail.com'
+        ? 'Anees (Admin)'
+        : cleanEmail === 'omema19022026@gmail.com'
         ? 'Omema (Lead Recruiter)'
         : cleanEmail === 'm.mattiulhasnain@gmail.com'
         ? 'M. Matti-ul-Hasnain (Admin)'
         : cleanEmail === 'mihora.tech@gmail.com'
         ? 'Mihora Tech (Admin)'
-        : gUser.displayName || 'Administrator';
+        : gUser.displayName || (cleanEmail ? cleanEmail.split('@')[0] : 'Recruiter');
 
     const appUser: AppUser = {
       id: gUser.uid,
@@ -187,7 +207,7 @@ export const googleSignIn = async (): Promise<{ user: AppUser; accessToken: stri
       email: cleanEmail,
       name: adminName,
       displayName: adminName,
-      role: 'admin',
+      role: isAdmin ? 'admin' : 'lead_recruiter',
       photoURL: gUser.photoURL || undefined,
       avatar_url: gUser.photoURL || undefined,
       isAnonymous: false,
@@ -226,7 +246,7 @@ export const googleSignIn = async (): Promise<{ user: AppUser; accessToken: stri
 };
 
 /**
- * Initialize and verify active Recruiter JWT session strictly against Postgres backend
+ * Initialize and verify active Recruiter session via Firebase Auth or Postgres backend
  */
 export const initAuth = (
   onAuthSuccess?: (user: AppUser, token: string | null) => void,
@@ -236,60 +256,130 @@ export const initAuth = (
     authListeners.push(onAuthSuccess);
   }
 
-  const token = localStorage.getItem(PG_TOKEN_KEY);
-  const storedUserStr = localStorage.getItem(PG_USER_KEY);
+  // 1. Listen to real Firebase Auth state changes
+  const unsubscribeFirebase = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    if (firebaseUser) {
+      const cleanEmail = (firebaseUser.email || '').trim().toLowerCase();
+      if (isEmailBlocked(cleanEmail)) {
+        await auth.signOut();
+        logout();
+        if (onAuthFailure) onAuthFailure('Access restricted for this account.');
+        return;
+      }
 
-  if (token) {
-    fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.user) {
-          if (isEmailBlocked(data.user.email)) {
-            logout();
-            if (onAuthFailure) onAuthFailure('Access restricted for this account.');
-            return;
+      const isAdmin = isAuthorizedGoogleEmail(cleanEmail);
+      const adminName =
+        cleanEmail === 'spideraneesf@gmail.com'
+          ? 'Anees (Admin)'
+          : cleanEmail === 'omema19022026@gmail.com'
+          ? 'Omema (Lead Recruiter)'
+          : cleanEmail === 'm.mattiulhasnain@gmail.com'
+          ? 'M. Matti-ul-Hasnain (Admin)'
+          : cleanEmail === 'mihora.tech@gmail.com'
+          ? 'Mihora Tech (Admin)'
+          : firebaseUser.displayName || (cleanEmail ? cleanEmail.split('@')[0] : 'Recruiter');
+
+      const appUser: AppUser = {
+        id: firebaseUser.uid,
+        uid: firebaseUser.uid,
+        email: cleanEmail,
+        name: adminName,
+        displayName: adminName,
+        role: isAdmin ? 'admin' : 'lead_recruiter',
+        photoURL: firebaseUser.photoURL || undefined,
+        avatar_url: firebaseUser.photoURL || undefined,
+        isAnonymous: false,
+      };
+
+      currentAuthUser = appUser;
+      localStorage.setItem(PG_USER_KEY, JSON.stringify(appUser));
+
+      // Auto-obtain server-side JWT session token if not already stored
+      const existingToken = localStorage.getItem(PG_TOKEN_KEY);
+      if (!existingToken) {
+        try {
+          const res = await fetch('/api/auth/session-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: firebaseUser.uid,
+              email: cleanEmail,
+              name: adminName,
+              avatar_url: firebaseUser.photoURL,
+              role: isAdmin ? 'admin' : 'lead_recruiter',
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.token) {
+              localStorage.setItem(PG_TOKEN_KEY, data.token);
+            }
           }
-          currentAuthUser = data.user;
-          localStorage.setItem(PG_USER_KEY, JSON.stringify(data.user));
-          if (onAuthSuccess) onAuthSuccess(data.user, cachedAccessToken);
-        } else if (storedUserStr) {
-          try {
-            const cachedUser = JSON.parse(storedUserStr);
-            currentAuthUser = cachedUser;
-            if (onAuthSuccess) onAuthSuccess(cachedUser, cachedAccessToken);
-          } catch {
+        } catch (e) {
+          console.warn('Session token sync note:', e);
+        }
+      }
+
+      notifyListeners(appUser, cachedAccessToken);
+    } else {
+      // 2. Check stored JWT / Postgres session if Firebase Auth is not active
+      const token = localStorage.getItem(PG_TOKEN_KEY);
+      const storedUserStr = localStorage.getItem(PG_USER_KEY);
+
+      if (token) {
+        fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.user) {
+              if (isEmailBlocked(data.user.email)) {
+                logout();
+                if (onAuthFailure) onAuthFailure('Access restricted for this account.');
+                return;
+              }
+              currentAuthUser = data.user;
+              localStorage.setItem(PG_USER_KEY, JSON.stringify(data.user));
+              if (onAuthSuccess) onAuthSuccess(data.user, cachedAccessToken);
+            } else if (storedUserStr) {
+              try {
+                const cachedUser = JSON.parse(storedUserStr);
+                currentAuthUser = cachedUser;
+                if (onAuthSuccess) onAuthSuccess(cachedUser, cachedAccessToken);
+              } catch {
+                currentAuthUser = null;
+                if (onAuthFailure) onAuthFailure();
+              }
+            } else {
+              localStorage.removeItem(PG_TOKEN_KEY);
+              localStorage.removeItem(PG_USER_KEY);
+              currentAuthUser = null;
+              if (onAuthFailure) onAuthFailure();
+            }
+          })
+          .catch(() => {
+            if (storedUserStr) {
+              try {
+                const cachedUser = JSON.parse(storedUserStr);
+                currentAuthUser = cachedUser;
+                if (onAuthSuccess) onAuthSuccess(cachedUser, cachedAccessToken);
+                return;
+              } catch {}
+            }
+            localStorage.removeItem(PG_TOKEN_KEY);
+            localStorage.removeItem(PG_USER_KEY);
             currentAuthUser = null;
             if (onAuthFailure) onAuthFailure();
-          }
-        } else {
-          localStorage.removeItem(PG_TOKEN_KEY);
-          localStorage.removeItem(PG_USER_KEY);
-          currentAuthUser = null;
-          if (onAuthFailure) onAuthFailure();
-        }
-      })
-      .catch(() => {
-        if (storedUserStr) {
-          try {
-            const cachedUser = JSON.parse(storedUserStr);
-            currentAuthUser = cachedUser;
-            if (onAuthSuccess) onAuthSuccess(cachedUser, cachedAccessToken);
-            return;
-          } catch {}
-        }
-        localStorage.removeItem(PG_TOKEN_KEY);
-        localStorage.removeItem(PG_USER_KEY);
+          });
+      } else {
         currentAuthUser = null;
         if (onAuthFailure) onAuthFailure();
-      });
-  } else {
-    currentAuthUser = null;
-    if (onAuthFailure) onAuthFailure();
-  }
+      }
+    }
+  });
 
   return () => {
+    unsubscribeFirebase();
     if (onAuthSuccess) {
       const idx = authListeners.indexOf(onAuthSuccess);
       if (idx !== -1) authListeners.splice(idx, 1);
@@ -310,7 +400,7 @@ export const logout = async () => {
   localStorage.removeItem(PG_TOKEN_KEY);
   localStorage.removeItem(PG_USER_KEY);
   currentAuthUser = null;
-  cachedAccessToken = null;
+  setCachedAccessToken(null);
   window.location.reload();
 };
 
@@ -325,7 +415,7 @@ export const hasCalendarAccess = (): boolean => {
 };
 
 export const clearCachedAccessToken = () => {
-  cachedAccessToken = null;
+  setCachedAccessToken(null);
 };
 
 export const isCurrentlySigningIn = () => isSigningIn;

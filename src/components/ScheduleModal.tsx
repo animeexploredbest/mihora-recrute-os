@@ -274,11 +274,11 @@ export function ScheduleModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 overflow-hidden animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto">
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto">
         {/* Pinned Header */}
-        <div className="p-5 sm:p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
+        <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-stone-800 flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-xl font-bold font-display text-gray-900 flex items-center gap-2">
+            <h2 className="text-xl font-bold font-display text-gray-900 dark:text-stone-100 flex items-center gap-2">
               {isReschedule ? (
                 <>
                   <CalendarClock className="w-5 h-5 text-amber-600" />
@@ -291,10 +291,10 @@ export function ScheduleModal({
                 </>
               )}
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Candidate: <span className="font-semibold text-gray-800">{candidate.name}</span> ({candidate.email})
+            <p className="text-xs text-gray-500 dark:text-stone-400 mt-0.5">
+              Candidate: <span className="font-semibold text-gray-800 dark:text-stone-200">{candidate.name}</span> ({candidate.email})
               {isReschedule && (
-                <span className="ml-2 text-amber-700 font-medium bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px]">
+                <span className="ml-2 text-amber-700 dark:text-amber-300 font-medium bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded text-[10px]">
                   Reschedule Mode
                 </span>
               )}
@@ -302,7 +302,7 @@ export function ScheduleModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+            className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-stone-200 hover:bg-gray-100 dark:hover:bg-stone-800 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1176,10 +1176,9 @@ Cc: {interviewerEmails}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Pinned Action Buttons Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 p-4 sm:p-5 border-t border-gray-100 bg-gray-50/80 shrink-0">
+        {/* Pinned Action Buttons Footer */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 p-4 sm:p-5 border-t border-gray-100 dark:border-stone-800 bg-gray-50/80 dark:bg-stone-800/80 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
@@ -1257,7 +1256,8 @@ Cc: {interviewerEmails}
           </button>
         </div>
       </div>
-      </div>
     </div>
+  </div>
+  </div>
   );
 }

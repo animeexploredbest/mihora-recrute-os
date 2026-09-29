@@ -206,16 +206,10 @@ export function evaluateCandidateTimezoneSlot(
   }
 }
 
-/**
- * Generates standard Google Meet link
- */
-function createMeetUrl(candidateName: string): string {
-  const slug = candidateName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .slice(0, 8);
-  const rand = Math.random().toString(36).substring(2, 6);
-  return `https://meet.google.com/${slug || 'sync'}-${rand}-mtg`;
+function resolveInitialMeetUrl(candidate: Candidate): string {
+  // Never fabricate dummy or fake Google Meet links.
+  // Real Google Meet links are generated when creating Google Calendar events via Google Calendar API.
+  return candidate.meetLink || '';
 }
 
 /**
@@ -389,7 +383,7 @@ export function runAutoScheduler(
             interviewerEmails: [candidateInterviewer],
             matchScore,
             matchReason: tzEval.reason,
-            meetLink: createMeetUrl(candidate.name),
+            meetLink: resolveInitialMeetUrl(candidate),
           };
 
           // If score is optimal (>= 95), lock in this slot

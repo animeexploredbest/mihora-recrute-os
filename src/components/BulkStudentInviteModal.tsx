@@ -49,6 +49,8 @@ import {
 import { batchAddCandidates } from '../lib/firebase-operations';
 import { broadcastLiveSync } from '../lib/cross-tab-sync';
 import { formatPktDateTime } from '../lib/date-utils';
+import { getAccessToken } from '../lib/auth';
+import { createInstantGoogleMeet } from '../lib/google-api';
 
 interface BulkStudentInviteModalProps {
   isOpen: boolean;
@@ -121,11 +123,28 @@ export const BulkStudentInviteModal: React.FC<BulkStudentInviteModalProps> = ({
   const [isCopiedText, setIsCopiedText] = useState(false);
   const [isCopiedMeetLink, setIsCopiedMeetLink] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isGeneratingLiveMeet, setIsGeneratingLiveMeet] = useState(false);
   const [sendStatus, setSendStatus] = useState<{
     success: boolean;
     message: string;
     details?: string;
   } | null>(null);
+
+  const handleGenerateLiveMeet = async () => {
+    setIsGeneratingLiveMeet(true);
+    try {
+      const token = await getAccessToken();
+      const res = await createInstantGoogleMeet(token || undefined);
+      setUseCustomMeetUrl(true);
+      setCustomMeetUrlInput(res.meetLink);
+    } catch (err) {
+      console.error('Failed to generate live meet:', err);
+      setUseCustomMeetUrl(true);
+      setCustomMeetUrlInput('https://meet.google.com/new');
+    } finally {
+      setIsGeneratingLiveMeet(false);
+    }
+  };
 
   // Calculate parsed recipients list
   const parsedRecipients = useMemo(() => {
@@ -396,7 +415,13 @@ export const BulkStudentInviteModal: React.FC<BulkStudentInviteModalProps> = ({
       location: activeMeetRoom.meetUrl,
       recipientEmails: studentEmails,
     });
-    window.open(gcalUrl, '_blank', 'noopener,noreferrer');
+    const link = document.createElement('a');
+    link.href = gcalUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // 1-Click Open in Gmail Web Client (Bcc all students for privacy)
@@ -411,13 +436,22 @@ export const BulkStudentInviteModal: React.FC<BulkStudentInviteModalProps> = ({
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(
       bccList
     )}&su=${subject}&body=${body}`;
-    window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+    const link = document.createElement('a');
+    link.href = gmailUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Dispatch Invitation via Backend SMTP and Record in Live Firestore DB
   const handleSendAndSave = async () => {
     if (parsedRecipients.length === 0) {
-      alert('Please add at least one student Gmail address.');
+      setSendStatus({
+        success: false,
+        message: 'Please add at least one student Gmail address.',
+      });
       setCurrentStep(1);
       return;
     }
@@ -1046,6 +1080,17 @@ Fatima Noor <fatima@gmail.com>, Bilal Qureshi <bilal@gmail.com>"
 
                     <button
                       type="button"
+                      onClick={handleGenerateLiveMeet}
+                      disabled={isGeneratingLiveMeet}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                      title="Generate a verified Google Meet conference room live"
+                    >
+                      {isGeneratingLiveMeet ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Video className="w-3.5 h-3.5" />}
+                      <span>Generate Live Meet</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setUseCustomMeetUrl(!useCustomMeetUrl)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
                         useCustomMeetUrl
@@ -1054,7 +1099,7 @@ Fatima Noor <fatima@gmail.com>, Bilal Qureshi <bilal@gmail.com>"
                       }`}
                     >
                       <LinkIcon className="w-3.5 h-3.5" />
-                      <span>{useCustomMeetUrl ? 'Using Custom URL' : 'Use Custom URL'}</span>
+                      <span>{useCustomMeetUrl ? 'Using Custom URL' : 'Paste Custom URL'}</span>
                     </button>
                   </div>
                 </div>

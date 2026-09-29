@@ -96,6 +96,8 @@ import { AutoSchedulerModal } from './components/AutoSchedulerModal';
 import { AiBulkIntakeModal } from './components/AiBulkIntakeModal';
 import { BulkStudentInviteModal } from './components/BulkStudentInviteModal';
 import { StaffManagerModal } from './components/StaffManagerModal';
+import { GoogleTasksModal } from './components/GoogleTasksModal';
+import { GoogleMeetModal } from './components/GoogleMeetModal';
 import { ThemeSelector } from './components/ThemeSelector';
 import { LoginPage } from './components/LoginPage';
 import { subscribeToLiveSync } from './lib/cross-tab-sync';
@@ -106,6 +108,7 @@ import { exportCandidatesToCsv, printCandidateSummaryReport } from './lib/export
 import appLogoImg from './assets/images/app_logo_1789732302179.jpg';
 import { getConflictCandidateIdSet } from './lib/conflict-detector';
 import { getTrackById, DEFAULT_INTERVIEW_TRACKS } from './lib/track-constants';
+import { MattiOmemaBatchModal } from './components/MattiOmemaBatchModal';
 
 export default function App() {
   const { theme, colors } = useTheme();
@@ -142,18 +145,23 @@ export default function App() {
   const [showAiBulkIntakeModal, setShowAiBulkIntakeModal] = useState(false);
   const [showStudentInviteModal, setShowStudentInviteModal] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showTasksModal, setShowTasksModal] = useState(false);
+  const [showMeetModal, setShowMeetModal] = useState(false);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
   const toolsMenuRef = React.useRef<HTMLDivElement>(null);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error'; undoAction?: () => void } | null>(null);
 
   // Batch Selection State
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [isMattiOmemaBatchModalOpen, setIsMattiOmemaBatchModalOpen] = useState(false);
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
-  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
-    setToastMessage({ text, type });
+  const showToast = (text: string, type: 'success' | 'error' = 'success', undoAction?: () => void) => {
+    setToastMessage({ text, type, undoAction });
     setTimeout(() => {
       setToastMessage(null);
-    }, 4000);
+    }, 6000);
   };
 
   // UI state
@@ -643,6 +651,15 @@ export default function App() {
     }
   };
 
+  const handleAttachMeetToCandidate = async (candidateId: string, meetLink: string) => {
+    try {
+      await updateCandidate(candidateId, { meetLink });
+      showToast('Google Meet room successfully linked to candidate.', 'success');
+    } catch (e: any) {
+      showToast(`Failed to link Meet room: ${e.message}`, 'error');
+    }
+  };
+
   const handleSaveBulkCandidates = async (
     candidatesData: Omit<Candidate, 'id' | 'userId' | 'meetLink'>[]
   ) => {
@@ -973,6 +990,14 @@ export default function App() {
     const count = selectedCandidateIds.size;
     try {
       const ids = Array.from(selectedCandidateIds) as string[];
+      const previousStatuses: Record<string, Candidate['status']> = {};
+      for (const id of ids) {
+        const found = candidates.find((c) => c.id === id);
+        if (found) {
+          previousStatuses[id] = found.status;
+        }
+      }
+
       for (const id of ids) {
         await updateCandidate(id, { status: newStatus });
       }
@@ -980,7 +1005,24 @@ export default function App() {
         prev.map((c) => (c.id && selectedCandidateIds.has(c.id) ? { ...c, status: newStatus } : c))
       );
       setSelectedCandidateIds(new Set());
-      showToast(`Updated status for ${count} candidate(s) to "${newStatus}".`, 'success');
+
+      const undoAction = async () => {
+        try {
+          for (const id of ids) {
+            const prevStatus = previousStatuses[id] || 'Pending';
+            await updateCandidate(id, { status: prevStatus });
+          }
+          setCandidates((prev) =>
+            prev.map((c) => (c.id && previousStatuses[c.id] ? { ...c, status: previousStatuses[c.id] } : c))
+          );
+          setToastMessage(null);
+          showToast(`Successfully undid status update for ${ids.length} candidate(s).`, 'success');
+        } catch (undoErr: any) {
+          showToast(`Undo failed: ${undoErr.message}`, 'error');
+        }
+      };
+
+      showToast(`Updated status for ${count} candidate(s) to "${newStatus}".`, 'success', undoAction);
     } catch (err: any) {
       showToast(`Batch update failed: ${err.message}`, 'error');
     }
@@ -989,19 +1031,42 @@ export default function App() {
   const handleBatchDelete = async () => {
     if (selectedCandidateIds.size === 0) return;
     const count = selectedCandidateIds.size;
-    if (!window.confirm(`Are you sure you want to delete ${count} selected candidates? This action cannot be undone.`)) {
-      return;
-    }
+    setIsBatchDeleting(true);
     try {
       const ids = Array.from(selectedCandidateIds) as string[];
+      const deletedCandidatesData: Candidate[] = [];
+      for (const id of ids) {
+        const found = candidates.find((c) => c.id === id);
+        if (found) {
+          deletedCandidatesData.push(found);
+        }
+      }
+
       for (const id of ids) {
         await deleteCandidate(id);
       }
       setCandidates((prev) => prev.filter((c) => !c.id || !selectedCandidateIds.has(c.id)));
       setSelectedCandidateIds(new Set());
-      showToast(`Successfully deleted ${count} candidate(s).`, 'success');
+      setShowBatchDeleteConfirm(false);
+
+      const undoAction = async () => {
+        try {
+          for (const cand of deletedCandidatesData) {
+            const { id, ...rest } = cand;
+            await addCandidate(rest);
+          }
+          setToastMessage(null);
+          showToast(`Successfully restored ${deletedCandidatesData.length} deleted candidate(s).`, 'success');
+        } catch (undoErr: any) {
+          showToast(`Restore failed: ${undoErr.message}`, 'error');
+        }
+      };
+
+      showToast(`Successfully deleted ${count} candidate(s).`, 'success', undoAction);
     } catch (err: any) {
       showToast(`Batch deletion failed: ${err.message}`, 'error');
+    } finally {
+      setIsBatchDeleting(false);
     }
   };
 
@@ -1183,6 +1248,8 @@ export default function App() {
                 isValidatingCalendar={isValidatingCalendar}
                 onConnectCalendar={handleConnectCalendar}
                 onVerifyCalendar={handleVerifyCalendar}
+                onOpenGoogleTasks={() => setShowTasksModal(true)}
+                onOpenGoogleMeet={() => setShowMeetModal(true)}
               />
 
               {/* Dedicated Google Calendar Connect Button */}
@@ -1191,11 +1258,11 @@ export default function App() {
                   id="header-connect-calendar-btn"
                   type="button"
                   onClick={handleConnectCalendar}
-                  title="Connect your Google Calendar to create real Google Meet video links"
+                  title="Connect your Google Calendar, Meet & Tasks"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all cursor-pointer shadow-2xs"
                 >
                   <Video className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  <span className="hidden sm:inline">Connect Calendar</span>
+                  <span className="hidden sm:inline">Connect Google</span>
                 </button>
               ) : (
                 <button
@@ -1206,11 +1273,33 @@ export default function App() {
                 >
                   <Video className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-[11px]">
-                    {calendarVerification?.valid ? 'Calendar Verified Live' : 'Calendar Synced'}
+                    {calendarVerification?.valid ? 'Calendar & Meet Synced' : 'Google Synced'}
                   </span>
                   {isValidatingCalendar && <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />}
                 </button>
               )}
+
+              {/* Quick Google Tasks Button */}
+              <button
+                type="button"
+                onClick={() => setShowTasksModal(true)}
+                title="View & manage Google Tasks follow-ups"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs ${colors.subtleBg} ${colors.border} ${colors.textPrimary} hover:brightness-95`}
+              >
+                <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
+                <span className="hidden lg:inline">Google Tasks</span>
+              </button>
+
+              {/* Quick Google Meet Button */}
+              <button
+                type="button"
+                onClick={() => setShowMeetModal(true)}
+                title="Launch an instant Google Meet room"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs ${colors.subtleBg} ${colors.border} ${colors.textPrimary} hover:brightness-95`}
+              >
+                <Video className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="hidden lg:inline">Instant Meet</span>
+              </button>
 
               {/* 2. Compact Live Team Presence (if team online) */}
               <LiveTeamPresence presences={livePresences} currentUserId={user?.uid} variant="compact" />
@@ -1222,7 +1311,7 @@ export default function App() {
                   type="button"
                   onClick={() => setShowToolsDropdown(!showToolsDropdown)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs ${colors.subtleBg} ${colors.border} ${colors.textPrimary} hover:brightness-95`}
-                  title="AI Scheduling, Ingest, Student Invites, and DB Tools"
+                  title="AI Scheduling, Ingest, Google Workspace Tools, and DB Tools"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-500 fill-current" />
                   <span className="hidden md:inline">Tools &amp; AI</span>
@@ -1231,6 +1320,46 @@ export default function App() {
 
                 {showToolsDropdown && (
                   <div className={`absolute right-0 mt-2 w-64 rounded-2xl p-2 border shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100 ${colors.cardBg} ${colors.border}`}>
+                    <div className={`px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider ${colors.textMuted}`}>
+                      Google Workspace &amp; Tasks
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTasksModal(true);
+                        setShowToolsDropdown(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 p-2 text-xs rounded-xl transition text-left cursor-pointer hover:${colors.subtleBg}`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <CheckSquare className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className={`font-semibold ${colors.textPrimary}`}>Google Tasks</div>
+                        <div className={`text-[10px] ${colors.textMuted}`}>Follow-ups &amp; reminders</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMeetModal(true);
+                        setShowToolsDropdown(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 p-2 text-xs rounded-xl transition text-left cursor-pointer hover:${colors.subtleBg}`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <Video className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className={`font-semibold ${colors.textPrimary}`}>Instant Google Meet</div>
+                        <div className={`text-[10px] ${colors.textMuted}`}>Generate video meeting room</div>
+                      </div>
+                    </button>
+
+                    <div className="my-1 border-t border-stone-200/60 dark:border-stone-800" />
+
                     <div className={`px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider ${colors.textMuted}`}>
                       AI &amp; Batch Automations
                     </div>
@@ -1876,7 +2005,7 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={handleBatchDelete}
+                onClick={() => setShowBatchDeleteConfirm(true)}
                 className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
@@ -1885,6 +2014,38 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* Matti & Omema Quick Batch Dispatch Banner */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-purple-500/10 border border-amber-500/30 dark:border-amber-500/20 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-600 to-indigo-600 text-white flex items-center justify-center shadow-md font-bold shrink-0">
+              <Zap className="w-5 h-5 fill-current text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <span>Mihora Tech Live Interview Dispatches</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                  Matti (36) + Omema (35)
+                </span>
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5">
+                Generate real meeting links, email all candidates individually (with CC/interviewer routing), and dispatch master summary reports.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+            <button
+              type="button"
+              onClick={() => setIsMattiOmemaBatchModalOpen(true)}
+              className="px-4 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white shadow-md flex items-center gap-2 transition-all cursor-pointer"
+              title="Open intelligent schedule batch manager for Matti (36) and Omema (35) with custom start dates and real meeting links"
+            >
+              <Zap className="w-4 h-4 fill-current text-white" />
+              <span>⚡ Configure & Dispatch Matti / Omema Batches</span>
+            </button>
+          </div>
+        </div>
 
         {/* Status Filter Tabs & Workspace Team Switcher */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-1 text-xs">
@@ -2306,6 +2467,86 @@ export default function App() {
         </div>
       )}
 
+      {/* Google Tasks & Follow-ups Modal */}
+      <GoogleTasksModal
+        isOpen={showTasksModal}
+        onClose={() => setShowTasksModal(false)}
+        isCalendarConnected={isCalendarConnected}
+        onConnectCalendar={handleConnectCalendar}
+      />
+
+      {/* Instant Google Meet Room Modal */}
+      <GoogleMeetModal
+        isOpen={showMeetModal}
+        onClose={() => setShowMeetModal(false)}
+        candidates={candidates}
+        onAssignToCandidate={handleAttachMeetToCandidate}
+        isCalendarConnected={isCalendarConnected}
+        onConnectCalendar={handleConnectCalendar}
+      />
+
+      {/* Matti & Omema Batch Modal */}
+      <MattiOmemaBatchModal
+        isOpen={isMattiOmemaBatchModalOpen}
+        onClose={() => setIsMattiOmemaBatchModalOpen(false)}
+        candidates={candidates}
+        userId={user?.uid || ''}
+        onRefresh={() => {}}
+        showToast={showToast}
+        isCalendarConnected={isCalendarConnected}
+        onConnectCalendar={handleConnectCalendar}
+      />
+
+      {/* Batch Delete Confirmation Modal */}
+      {showBatchDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-800 space-y-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl shrink-0 border border-red-100">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 pr-2">
+                <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                  Delete {selectedCandidateIds.size} Selected Candidate(s)?
+                </h3>
+                <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed">
+                  Are you sure you want to delete all selected candidates? You can undo/restore them from the notification toast if needed.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-stone-100 dark:border-stone-800">
+              <button
+                type="button"
+                disabled={isBatchDeleting}
+                onClick={() => setShowBatchDeleteConfirm(false)}
+                className="px-4 py-2 text-sm font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isBatchDeleting}
+                onClick={handleBatchDelete}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {isBatchDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete Selected
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating In-App Toast Notification */}
       {showHerokuModal && (
         <HerokuDeployModal
@@ -2329,6 +2570,14 @@ export default function App() {
               <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
             )}
             <span>{toastMessage.text}</span>
+            {toastMessage.undoAction && (
+              <button
+                onClick={toastMessage.undoAction}
+                className="ml-3 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+              >
+                <span>Undo</span>
+              </button>
+            )}
             <button
               onClick={() => setToastMessage(null)}
               className="ml-2 text-gray-400 hover:text-white transition-colors cursor-pointer"

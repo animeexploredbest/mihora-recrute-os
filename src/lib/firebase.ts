@@ -16,7 +16,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 export const FIRESTORE_DATABASE_ID =
-  (config as any).firestoreDatabaseId || 'ai-studio-scheduler-68bd316d-580a-453b-a95a-b34881dcc4d1';
+  (config as any).firestoreDatabaseId || '(default)';
 
 // Initialize with experimentalForceLongPolling to prevent WebSocket drops/hangs in sandboxed iframes
 export const db = initializeFirestore(

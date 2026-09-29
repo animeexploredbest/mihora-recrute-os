@@ -251,24 +251,37 @@ async function startServer() {
         return res.status(400).json({ error: 'Email is required' });
       }
       const cleanEmail = email.trim().toLowerCase();
-      const AUTHORIZED_GOOGLE_EMAILS = [
+      const HARD_BLOCKED_EMAILS = ['zainabfatima25.g@gmail.com'];
+      if (HARD_BLOCKED_EMAILS.includes(cleanEmail)) {
+        return res.status(403).json({
+          error: 'Access Denied: This account is permanently restricted.',
+        });
+      }
+      const AUTHORIZED_ADMINS = [
+        'spideraneesf@gmail.com',
         'omema19022026@gmail.com',
         'm.mattiulhasnain@gmail.com',
         'mihora.tech@gmail.com',
       ];
-      const isAuthGoogle = AUTHORIZED_GOOGLE_EMAILS.includes(cleanEmail);
-      if (!isAuthGoogle) {
-        return res.status(403).json({
-          error:
-            'Google Sign-In is specially designated for primary team administrators (omema19022026@gmail.com, m.mattiulhasnain@gmail.com, mihora.tech@gmail.com). Other staff members must sign in using their assigned Username and Password.',
-        });
-      }
+      const isAdmin = AUTHORIZED_ADMINS.includes(cleanEmail);
+      const userRole = isAdmin ? 'admin' : (req.body.role || 'lead_recruiter');
+      const defaultName =
+        cleanEmail === 'spideraneesf@gmail.com'
+          ? 'Anees (Admin)'
+          : cleanEmail === 'omema19022026@gmail.com'
+          ? 'Omema (Lead Recruiter)'
+          : cleanEmail === 'm.mattiulhasnain@gmail.com'
+          ? 'M. Matti-ul-Hasnain (Admin)'
+          : cleanEmail === 'mihora.tech@gmail.com'
+          ? 'Mihora Tech (Admin)'
+          : name || (cleanEmail ? cleanEmail.split('@')[0] : 'Recruiter');
+
       const result = await syncSessionUser({
         email: cleanEmail,
-        name: name || 'Admin',
+        name: defaultName,
         id,
         avatar_url,
-        role: 'admin',
+        role: userRole as any,
       });
       res.json(result);
     } catch (err: any) {
@@ -456,9 +469,9 @@ Return ONLY a valid JSON object matching the following schema, and nothing else 
   });
 
   app.post('/api/bulk-analyze', async (req, res) => {
-    const { text } = req.body;
-    if (!text) {
-      return res.status(400).json({ error: 'Bulk text is required' });
+    const { text, fileBase64, mimeType } = req.body;
+    if (!text && !fileBase64) {
+      return res.status(400).json({ error: 'Bulk text or document file is required.' });
     }
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured.' });
@@ -473,33 +486,47 @@ Return ONLY a valid JSON object matching the following schema, and nothing else 
           },
         },
       });
-      const prompt = `
-Extract a list of candidates from the following bulk text (which might be multiple resumes, a spreadsheet export, or raw notes).
-If the text contains any mentions of time, dates, or timezones (e.g. "Available on Tuesday at 3 PM EST"), extract that into 'originalAvailability'.
-Then, INTELLIGENTLY convert that mentioned time into Pakistan Standard Time (PKT / UTC+5) in ISO 8601 format and put it in 'suggestedPktTime'. If no time is mentioned, leave suggestedPktTime empty.
 
-Return ONLY a valid JSON Array of objects matching this schema exactly, with no markdown formatting or extra text.
+      const promptText = `
+Extract a list of candidates from the provided content (which might be resumes, a spreadsheet export, WhatsApp messages, email threads, or raw notes).
+For each candidate:
+1. Extract their name, email, phone, city, country, and detect standard IANA timezone (e.g. Asia/Karachi, America/New_York, Europe/London, Asia/Dubai, etc.).
+2. Extract job title / role, 1-2 sentence profile summary, technical skills list, and technical rating (1-10).
+3. If the content contains any mentions of availability or dates/time (e.g. "Available on Tuesday at 3 PM EST"), extract that into 'originalAvailability'.
+4. Then, convert that mentioned time into Pakistan Standard Time (PKT / UTC+5) in ISO 8601 format and put it in 'suggestedPktTime'. If no time is mentioned, leave suggestedPktTime empty.
+
+Return ONLY a valid JSON Array of objects matching this schema exactly, with no markdown formatting or extra text:
 
 [
   {
     "name": "Full Name (fallback to 'Unknown Name')",
     "email": "Email Address (fallback to '')",
-    "phone": "Phone Number (fallback to 'N/A')",
-    "country": "Country name (e.g. Pakistan, United States, United Kingdom, United Arab Emirates, etc.)",
-    "city": "City or location if mentioned (fallback to '')",
-    "timezone": "Standard IANA timezone (e.g. America/New_York, Europe/London, Asia/Karachi, Asia/Dubai, etc.)",
-    "position": "Job Title / Role (fallback to '')",
+    "phone": "Phone Number (fallback to '')",
+    "country": "Country name (e.g. Pakistan, United States, United Kingdom, etc.)",
+    "city": "City name if mentioned (fallback to '')",
+    "timezone": "Standard IANA timezone (e.g. Asia/Karachi, America/New_York, Europe/London, etc.)",
+    "position": "Job Title / Role (fallback to 'Software Engineer')",
     "summary": "1-2 sentence summary of their profile",
     "skills": "Comma-separated list of top technical skills",
-    "rating": "A number from 1 to 10 rating their technical strength",
-    "originalAvailability": "Raw text of their availability/time mentioned (fallback to '')",
+    "rating": 8,
+    "originalAvailability": "Raw text of their availability/time mentioned (fallback to 'Flexible')",
     "suggestedPktTime": "ISO 8601 Date string converted to PKT timezone. Leave empty if no time mentioned."
   }
 ]
-
-Bulk Data Text:
-${text}
+${text ? `\nContent:\n${text}` : ''}
 `;
+
+      const contents: any = fileBase64
+        ? [
+            {
+              inlineData: {
+                data: fileBase64,
+                mimeType: mimeType || 'application/pdf',
+              },
+            },
+            promptText,
+          ]
+        : promptText;
 
       const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
       let rawText = '';
@@ -507,7 +534,7 @@ ${text}
         try {
           const response = await ai.models.generateContent({
             model,
-            contents: prompt,
+            contents,
             config: { responseMimeType: 'application/json' },
           });
           if (response && response.text) {
